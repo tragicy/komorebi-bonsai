@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#e8e2d7" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23526b52'/%3E%3Cpath d='M10 24V8m0 9L21 9M10 17l11 7' stroke='%23f7f4e9' stroke-width='2' fill='none'/%3E%3C/svg%3E" />
-  <title>Komorebi — Realistic Bonsai · Version 2</title>
+  <title>Bonsai Therapy</title>
   <style>
     :root {
       --ink: #28342d;
@@ -54,7 +54,9 @@
     }
 
     .brand, .top-actions { display: flex; align-items: center; }
-    .brand { gap: 12px; }
+    .brand { gap: 12px; pointer-events: auto; }
+    .tree-toggle { height: 36px; margin-left: 4px; }
+    .tree-toggle-label { font-size: 11px; }
     .brand-mark {
       width: 42px;
       height: 42px;
@@ -150,7 +152,14 @@
       backdrop-filter: blur(18px);
     }
 
-    .vitality-panel { top: 112px; left: 28px; width: 254px; padding: 21px; }
+    .vitality-panel { top: 112px; left: 28px; width: 254px; padding: 21px; transition: opacity 180ms, transform 180ms; }
+    .vitality-panel.hidden { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+    .vitality-panel.dragging { transition: none; box-shadow: 0 22px 65px rgba(46, 44, 36, 0.22); }
+    .vitality-panel.collapsed { padding-bottom: 15px; }
+    .vitality-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 18px; cursor: grab; touch-action: none; }
+    .vitality-head:active { cursor: grabbing; }
+    .vitality-panel.collapsed .vitality-head { margin-bottom: 0; }
+    #vitality-body.collapsed { display: none; }
     .eyebrow {
       color: #899087;
       font-size: 9px;
@@ -448,7 +457,8 @@
       .topbar { padding: 15px; }
       .brand-mark { width: 36px; height: 36px; }
       .brand h1 { font-size: 16px; }
-      .brand p, #sound-label, .weather-control { display: none; }
+      .brand p, #sound-label, .weather-control, .tree-toggle-label { display: none; }
+      .tree-toggle { width: 36px; margin-left: 0; padding: 0; }
       .season-chip { min-width: 0; padding: 8px 10px; }
       .season-chip div span { display: none; }
       .vitality-panel { top: 76px; left: 12px; width: 176px; padding: 14px; border-radius: 14px; }
@@ -504,7 +514,11 @@
           <path d="M5 10c-2-3 0-6 4-5 1-4 7-3 7 1 4-1 5 4 2 6-3 2-10 1-13-2Z" />
         </svg>
       </div>
-      <div><h1>KOMOREBI</h1><p>Realistic bonsai · Version 2</p></div>
+      <div><h1>KOMOREBI</h1><p>Bonsai therapy</p></div>
+      <button class="icon-button tree-toggle" id="vitality-toggle" aria-label="Open Your Tree widget" aria-expanded="false" aria-controls="vitality-panel" title="Your Tree widget">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 21V9m0 5-5-4m5 1 5-5M7 21h10" /><path d="M5 10c-2-3 0-6 4-5 1-4 7-3 7 1 4-1 5 4 2 6-3 2-10 1-13-2Z" /></svg>
+        <span class="tree-toggle-label">Your Tree</span>
+      </button>
     </div>
     <div class="top-actions">
       <div class="season-chip">
@@ -529,8 +543,18 @@
     </div>
   </header>
 
-  <aside class="panel vitality-panel">
-    <div class="eyebrow">Your tree</div>
+  <aside class="panel vitality-panel hidden" id="vitality-panel" aria-label="Your Tree widget">
+    <div class="vitality-head" id="vitality-handle" title="Drag to move widget">
+      <div class="widget-title">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="3" r="1" /><circle cx="10" cy="3" r="1" /><circle cx="4" cy="8" r="1" /><circle cx="10" cy="8" r="1" /><circle cx="4" cy="13" r="1" /><circle cx="10" cy="13" r="1" /></svg>
+        <div class="eyebrow">Your tree</div>
+      </div>
+      <div class="widget-actions">
+        <button class="close-button" id="vitality-collapse" aria-label="Collapse Your Tree widget" aria-expanded="true" title="Collapse widget"><span id="vitality-collapse-icon">−</span></button>
+        <button class="close-button" id="close-vitality" aria-label="Close Your Tree widget">×</button>
+      </div>
+    </div>
+    <div id="vitality-body">
     <div class="tree-name">Japanese maple <span id="tree-age">1 yr</span></div>
     <div class="harmony">
       <div class="harmony-ring" id="harmony-ring"><span id="harmony-value">72</span></div>
@@ -557,6 +581,7 @@
     <div class="intention">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="8" /><path d="m8 12 3 3 5-6" /></svg>
       <span id="intention-text">Intention: let light reach the inner leaves.</span>
+    </div>
     </div>
   </aside>
 
@@ -2524,6 +2549,65 @@
       clampCultivationWidget();
     });
 
+    const vitalityWidget = $('vitality-panel');
+    const vitalityHandle = $('vitality-handle');
+    let vitalityDrag = null;
+
+    function clampVitalityWidget() {
+      if (!vitalityWidget.style.left) return;
+      const rect = vitalityWidget.getBoundingClientRect();
+      const left = clamp(parseFloat(vitalityWidget.style.left), 8, Math.max(8, innerWidth - rect.width - 8));
+      const top = clamp(parseFloat(vitalityWidget.style.top), 60, Math.max(60, innerHeight - 64));
+      vitalityWidget.style.left = `${left}px`;
+      vitalityWidget.style.top = `${top}px`;
+    }
+
+    function setVitalityOpen(open) {
+      vitalityWidget.classList.toggle('hidden', !open);
+      $('vitality-toggle').setAttribute('aria-expanded', String(open));
+      $('vitality-toggle').setAttribute('aria-label', open ? 'Close Your Tree widget' : 'Open Your Tree widget');
+      if (open) clampVitalityWidget();
+    }
+
+    vitalityHandle.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || event.target.closest('button')) return;
+      event.preventDefault();
+      const rect = vitalityWidget.getBoundingClientRect();
+      vitalityWidget.style.left = `${rect.left}px`;
+      vitalityWidget.style.top = `${rect.top}px`;
+      vitalityWidget.style.right = 'auto';
+      vitalityDrag = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
+      vitalityHandle.setPointerCapture(event.pointerId);
+      vitalityWidget.classList.add('dragging');
+    });
+
+    vitalityHandle.addEventListener('pointermove', event => {
+      if (!vitalityDrag) return;
+      const rect = vitalityWidget.getBoundingClientRect();
+      vitalityWidget.style.left = `${clamp(event.clientX - vitalityDrag.offsetX, 8, Math.max(8, innerWidth - rect.width - 8))}px`;
+      vitalityWidget.style.top = `${clamp(event.clientY - vitalityDrag.offsetY, 60, Math.max(60, innerHeight - 64))}px`;
+    });
+
+    function finishVitalityDrag() {
+      if (!vitalityDrag) return;
+      if (vitalityHandle.hasPointerCapture(vitalityDrag.pointerId)) vitalityHandle.releasePointerCapture(vitalityDrag.pointerId);
+      vitalityDrag = null;
+      vitalityWidget.classList.remove('dragging');
+      clampVitalityWidget();
+    }
+
+    vitalityHandle.addEventListener('pointerup', finishVitalityDrag);
+    vitalityHandle.addEventListener('pointercancel', finishVitalityDrag);
+    $('vitality-collapse').addEventListener('click', () => {
+      const collapsed = $('vitality-body').classList.toggle('collapsed');
+      vitalityWidget.classList.toggle('collapsed', collapsed);
+      $('vitality-collapse').setAttribute('aria-expanded', String(!collapsed));
+      $('vitality-collapse').setAttribute('aria-label', collapsed ? 'Expand Your Tree widget' : 'Collapse Your Tree widget');
+      $('vitality-collapse').title = collapsed ? 'Expand widget' : 'Collapse widget';
+      $('vitality-collapse-icon').textContent = collapsed ? '+' : '−';
+      clampVitalityWidget();
+    });
+
     document.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => setTool(button.dataset.tool)));
     $('undo-button').addEventListener('click', undo);
     $('grow-button').addEventListener('click', advanceTime);
@@ -2532,6 +2616,8 @@
     $('weather').addEventListener('change', applyWeather);
     $('settings-toggle').addEventListener('click', () => setCultivationOpen($('settings-panel').classList.contains('hidden')));
     $('close-settings').addEventListener('click', () => setCultivationOpen(false));
+    $('vitality-toggle').addEventListener('click', () => setVitalityOpen($('vitality-panel').classList.contains('hidden')));
+    $('close-vitality').addEventListener('click', () => setVitalityOpen(false));
     $('dismiss-coach').addEventListener('click', () => $('coach').classList.add('hidden'));
     ['depth', 'spread', 'gnarl', 'leaves'].forEach(key => {
       $(key).addEventListener('input', () => {
@@ -2552,6 +2638,7 @@
         setTool('wire');
       } else if (event.key === 'Escape') {
         setCultivationOpen(false);
+        setVitalityOpen(false);
         clearHover();
       }
     });
@@ -2563,6 +2650,7 @@
       renderer.setSize(innerWidth, innerHeight);
       renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
       clampCultivationWidget();
+      clampVitalityWidget();
     });
 
     const clock = new THREE.Clock();
