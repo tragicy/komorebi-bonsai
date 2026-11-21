@@ -1,0 +1,2631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#e8e2d7" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23526b52'/%3E%3Cpath d='M10 24V8m0 9L21 9M10 17l11 7' stroke='%23f7f4e9' stroke-width='2' fill='none'/%3E%3C/svg%3E" />
+  <title>Komorebi — Realistic Bonsai · Version 2</title>
+  <style>
+    :root {
+      --ink: #28342d;
+      --muted: #788078;
+      --paper: rgba(249, 247, 241, 0.88);
+      --line: rgba(48, 63, 52, 0.12);
+      --green: #526b52;
+      --green-dark: #3d533f;
+      --gold: #b78a4b;
+      --shadow: 0 16px 50px rgba(46, 44, 36, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      color: var(--ink);
+      background: #e8e2d7;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
+      user-select: none;
+    }
+
+    button, select, input { font: inherit; }
+    button, select { -webkit-tap-highlight-color: transparent; }
+    button { color: inherit; }
+    button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 2px solid #8a9c79;
+      outline-offset: 3px;
+    }
+
+    #scene, #scene canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+    #scene canvas { display: block; touch-action: none; cursor: crosshair; }
+
+    .topbar {
+      position: fixed;
+      z-index: 5;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 28px;
+      pointer-events: none;
+    }
+
+    .brand, .top-actions { display: flex; align-items: center; }
+    .brand { gap: 12px; }
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(57, 76, 60, 0.25);
+      border-radius: 50%;
+      color: var(--green-dark);
+    }
+    .brand-mark svg { width: 25px; height: 25px; }
+    .brand h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      line-height: 1.1;
+    }
+    .brand p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: 0.19em;
+      text-transform: uppercase;
+    }
+
+    .top-actions { gap: 9px; pointer-events: auto; }
+    .season-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 154px;
+      padding: 9px 14px;
+      margin-right: 4px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+      box-shadow: 0 5px 20px rgba(50, 50, 40, 0.05);
+      backdrop-filter: blur(16px);
+    }
+    #season-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: #91a87b;
+      box-shadow: 0 0 0 4px rgba(137, 161, 115, 0.13);
+    }
+    .season-chip strong, .season-chip span { display: block; }
+    .season-chip strong { font-family: Georgia, serif; font-size: 13px; font-weight: 500; }
+    .season-chip div span { margin-top: 3px; color: var(--muted); font-size: 10px; }
+
+    .icon-button, .weather-control {
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--paper);
+      backdrop-filter: blur(16px);
+      transition: background 160ms, transform 160ms;
+    }
+    .icon-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-width: 40px;
+      padding: 0 11px;
+      cursor: pointer;
+    }
+    .icon-button:hover, .weather-control:hover { background: rgba(255, 254, 249, 0.98); }
+    .icon-button:active { transform: translateY(1px); }
+    .icon-button svg { width: 17px; height: 17px; }
+    .icon-button span { font-size: 11px; }
+    .weather-control { display: flex; align-items: center; padding: 0 8px 0 11px; }
+    .weather-control svg { width: 16px; height: 16px; color: #6f7c72; }
+    .weather-control select {
+      border: 0;
+      outline: 0;
+      color: var(--ink);
+      background: transparent;
+      padding: 8px 3px 8px 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .panel {
+      position: fixed;
+      z-index: 4;
+      border: 1px solid rgba(54, 70, 57, 0.11);
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .vitality-panel { top: 112px; left: 28px; width: 254px; padding: 21px; }
+    .eyebrow {
+      color: #899087;
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .tree-name {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-top: 7px;
+      font-family: Georgia, serif;
+      font-size: 18px;
+    }
+    .tree-name span { color: var(--muted); font-family: Inter, sans-serif; font-size: 10px; }
+    .harmony { display: flex; align-items: center; gap: 13px; margin: 20px 0; }
+    .harmony-ring {
+      position: relative;
+      width: 59px;
+      height: 59px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: conic-gradient(var(--green) 72%, rgba(82, 107, 82, 0.12) 0);
+      transition: background 400ms;
+    }
+    .harmony-ring::before {
+      content: "";
+      position: absolute;
+      inset: 5px;
+      border-radius: 50%;
+      background: #f5f3ec;
+    }
+    .harmony-ring span { position: relative; font-family: Georgia, serif; font-size: 19px; }
+    .harmony strong { font-family: Georgia, serif; font-size: 13px; font-weight: 500; }
+    .harmony p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
+
+    .metric { margin-top: 13px; }
+    .metric-label { display: flex; justify-content: space-between; margin-bottom: 7px; font-size: 11px; }
+    .metric-label span:last-child { color: #6f776f; font-variant-numeric: tabular-nums; }
+    .track { height: 4px; overflow: hidden; border-radius: 5px; background: rgba(63, 84, 65, 0.1); }
+    .track i {
+      display: block;
+      width: 50%;
+      height: 100%;
+      border-radius: inherit;
+      background: #7c9170;
+      transition: width 500ms ease, background 300ms;
+    }
+    .metric:nth-of-type(5) .track i { background: #7c9a9b; }
+    .divider { height: 1px; margin: 20px 0 16px; background: var(--line); }
+    .care-title { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; font-family: Georgia, serif; font-size: 12px; }
+    .care-title svg { width: 14px; height: 14px; color: #8d7655; }
+    #care-tip { min-height: 44px; margin: 0; color: var(--muted); font-size: 11px; line-height: 1.65; }
+    .intention {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 14px;
+      padding: 9px 10px;
+      border-radius: 9px;
+      color: #65705f;
+      background: rgba(108, 130, 91, 0.07);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+    .intention svg { width: 14px; height: 14px; flex: 0 0 auto; }
+
+    .settings-panel { top: 82px; right: 28px; width: 278px; padding: 21px; transition: opacity 180ms, transform 180ms; }
+    .settings-panel.hidden { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+    .settings-panel.dragging { transition: none; box-shadow: 0 22px 65px rgba(46, 44, 36, 0.22); }
+    .settings-panel.collapsed { padding-bottom: 15px; }
+    .settings-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 18px; cursor: grab; touch-action: none; }
+    .settings-head:active { cursor: grabbing; }
+    .settings-panel.collapsed .settings-head { margin-bottom: 0; }
+    .settings-head h2 { margin: 0; font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
+    .widget-title, .widget-actions { display: flex; align-items: center; }
+    .widget-title { gap: 8px; }
+    .widget-title svg { width: 14px; height: 14px; color: #92998f; }
+    .widget-actions { gap: 2px; }
+    #cultivation-body.collapsed { display: none; }
+    .close-button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: #7d857d; cursor: pointer; font-size: 18px; }
+    .close-button:hover { background: rgba(82, 107, 82, 0.08); color: var(--ink); }
+    .control { margin: 15px 0; }
+    .control label { display: flex; justify-content: space-between; margin-bottom: 8px; color: #657066; font-size: 11px; }
+    .control output { color: #8a9189; font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; height: 3px; margin: 0; accent-color: var(--green); cursor: pointer; }
+    .primary-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 11px 15px;
+      border: 0;
+      border-radius: 10px;
+      color: #f8faf4;
+      background: var(--green);
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 160ms, transform 160ms;
+    }
+    .primary-button:hover { background: var(--green-dark); }
+    .primary-button:active { transform: translateY(1px); }
+    .primary-button:disabled { opacity: 0.5; cursor: wait; }
+    .primary-button svg { width: 15px; height: 15px; }
+    .settings-note { margin: 11px 0 0; color: #92988f; font-size: 9px; line-height: 1.5; text-align: center; }
+
+    .coach {
+      position: fixed;
+      z-index: 4;
+      left: 28px;
+      bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 254px;
+      padding: 13px 14px;
+      border: 1px solid rgba(54, 70, 57, 0.1);
+      border-radius: 13px;
+      background: rgba(249, 247, 241, 0.77);
+      backdrop-filter: blur(14px);
+      transition: opacity 200ms, transform 200ms;
+    }
+    .coach.hidden { opacity: 0; transform: translateY(8px); pointer-events: none; }
+    .coach > svg { width: 22px; height: 22px; flex: 0 0 auto; color: #8a7658; }
+    .coach p { margin: 0; font-size: 10px; line-height: 1.55; }
+    .coach strong { font-family: Georgia, serif; font-size: 12px; font-weight: 500; }
+    .coach p span { color: var(--muted); }
+    .coach button { align-self: flex-start; margin-left: auto; padding: 0; border: 0; background: transparent; color: #9a9e97; cursor: pointer; }
+
+    .ritual-actions {
+      position: fixed;
+      z-index: 4;
+      right: 28px;
+      bottom: 111px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .ritual-button {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 124px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      color: #5e6b61;
+      background: rgba(249, 247, 241, 0.82);
+      backdrop-filter: blur(14px);
+      cursor: pointer;
+      font-size: 10px;
+      transition: background 160ms, transform 160ms;
+    }
+    .ritual-button:hover { background: #fffef9; transform: translateX(-2px); }
+    .ritual-button.active { color: #f7f9f3; background: var(--green); }
+    .ritual-button.active:hover { background: var(--green-dark); }
+    .ritual-button svg { width: 16px; height: 16px; }
+    .ritual-button:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+    .bottom-area {
+      position: fixed;
+      z-index: 5;
+      left: 50%;
+      bottom: 26px;
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      transform: translateX(-50%);
+    }
+    .toolbar, .grow-panel {
+      display: flex;
+      align-items: center;
+      padding: 6px;
+      border: 1px solid rgba(48, 63, 52, 0.13);
+      border-radius: 15px;
+      background: rgba(249, 247, 241, 0.92);
+      box-shadow: 0 12px 35px rgba(42, 45, 36, 0.14);
+      backdrop-filter: blur(18px);
+    }
+    .tool {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 44px;
+      padding: 0 13px;
+      border: 0;
+      border-radius: 10px;
+      color: #707970;
+      background: transparent;
+      cursor: pointer;
+      font-size: 11px;
+      transition: color 160ms, background 160ms;
+    }
+    .tool:hover { color: var(--ink); background: rgba(82, 107, 82, 0.06); }
+    .tool.active { color: #f7f9f3; background: var(--green); }
+    .tool svg { width: 17px; height: 17px; }
+    .tool kbd {
+      margin-left: 3px;
+      color: inherit;
+      opacity: 0.5;
+      font-family: inherit;
+      font-size: 8px;
+    }
+    .tool:disabled { opacity: 0.35; cursor: default; }
+    .tool:disabled:hover { color: #707970; background: transparent; }
+    .toolbar-divider { width: 1px; height: 24px; margin: 0 4px; background: var(--line); }
+    #undo-button { padding: 0 11px; }
+    #undo-button kbd { display: none; }
+
+    .grow-panel { gap: 8px; padding: 6px 6px 6px 13px; }
+    .grow-panel > label { color: #858c84; font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; }
+    .grow-panel select { max-width: 92px; border: 0; color: #5c675e; background: transparent; font-size: 10px; cursor: pointer; }
+    #grow-button { width: auto; min-width: 112px; height: 44px; padding: 0 14px; }
+
+    #hover-tooltip {
+      position: fixed;
+      z-index: 8;
+      min-width: 142px;
+      padding: 10px 12px;
+      border: 1px solid rgba(111, 90, 49, 0.17);
+      border-radius: 10px;
+      background: rgba(39, 46, 39, 0.91);
+      box-shadow: 0 8px 25px rgba(20, 25, 20, 0.18);
+      color: #f4f1e7;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 100ms, transform 100ms;
+    }
+    #hover-tooltip.visible { opacity: 1; transform: translateY(0); }
+    #hover-tooltip strong, #hover-tooltip span { display: block; }
+    #hover-tooltip strong { font-family: Georgia, serif; font-size: 12px; font-weight: 500; }
+    #hover-tooltip span { margin-top: 4px; color: #bdc6b9; font-size: 9px; }
+
+    #toast {
+      position: fixed;
+      z-index: 12;
+      top: 86px;
+      left: 50%;
+      max-width: min(420px, calc(100vw - 30px));
+      padding: 11px 17px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 30px;
+      color: #f3f3e9;
+      background: rgba(47, 61, 49, 0.91);
+      box-shadow: 0 8px 28px rgba(37, 45, 37, 0.16);
+      backdrop-filter: blur(12px);
+      font-family: Georgia, serif;
+      font-size: 12px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, -8px);
+      transition: opacity 200ms, transform 200ms;
+    }
+    #toast.visible { opacity: 1; transform: translate(-50%, 0); }
+
+    #loading {
+      position: fixed;
+      z-index: 30;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: #e8e2d7;
+      transition: opacity 500ms;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+    #loading > div { text-align: center; }
+    #loading p { margin-top: 17px; color: #677064; font-family: Georgia, serif; font-size: 14px; letter-spacing: 0.04em; }
+    .loader-ring {
+      width: 42px;
+      height: 42px;
+      margin: auto;
+      border: 1px solid rgba(75, 96, 74, 0.18);
+      border-top-color: #647b5e;
+      border-radius: 50%;
+      animation: spin 1.4s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 1050px) {
+      .coach { display: none; }
+      .vitality-panel { width: 224px; padding: 17px; }
+      .bottom-area { left: auto; right: 24px; transform: none; }
+      .grow-panel > label { display: none; }
+    }
+
+    @media (max-width: 760px) {
+      .topbar { padding: 15px; }
+      .brand-mark { width: 36px; height: 36px; }
+      .brand h1 { font-size: 16px; }
+      .brand p, #sound-label, .weather-control { display: none; }
+      .season-chip { min-width: 0; padding: 8px 10px; }
+      .season-chip div span { display: none; }
+      .vitality-panel { top: 76px; left: 12px; width: 176px; padding: 14px; border-radius: 14px; }
+      .tree-name { font-size: 14px; }
+      .harmony { margin: 13px 0; gap: 9px; }
+      .harmony-ring { width: 46px; height: 46px; }
+      .harmony-ring span { font-size: 15px; }
+      .harmony p { display: none; }
+      .metric { margin-top: 9px; }
+      .divider { margin: 13px 0; }
+      #care-tip { min-height: 0; font-size: 10px; }
+      .intention { display: none; }
+      .settings-panel { top: 67px; right: 12px; width: min(278px, calc(100vw - 24px)); }
+      .ritual-actions { right: 12px; bottom: 148px; }
+      .ritual-button { min-width: 0; width: 39px; height: 39px; padding: 0; justify-content: center; border-radius: 50%; }
+      .ritual-button span { display: none; }
+      .bottom-area { left: 10px; right: 10px; bottom: 12px; flex-direction: column; align-items: center; gap: 7px; }
+      .toolbar, .grow-panel { box-shadow: 0 8px 25px rgba(42, 45, 36, 0.12); }
+      .grow-panel { flex-direction: row; padding-left: 8px; }
+      .grow-panel > label { display: block; }
+      .tool { height: 39px; }
+      #grow-button { height: 37px; }
+      #toast { top: 69px; }
+    }
+
+    @media (max-width: 430px) {
+      .season-chip { display: none; }
+      .tool, #undo-button { padding: 0 9px; }
+      .tool kbd { display: none; }
+      .vitality-panel { width: 158px; }
+      .care-title, #care-tip { display: none; }
+      .divider { display: none; }
+      .grow-panel > label { display: none; }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="scene" aria-label="Interactive 3D bonsai garden"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25">
+          <path d="M12 21V9m0 5-5-4m5 1 5-5M7 21h10" />
+          <path d="M5 10c-2-3 0-6 4-5 1-4 7-3 7 1 4-1 5 4 2 6-3 2-10 1-13-2Z" />
+        </svg>
+      </div>
+      <div><h1>KOMOREBI</h1><p>Realistic bonsai · Version 2</p></div>
+    </div>
+    <div class="top-actions">
+      <div class="season-chip">
+        <span id="season-dot"></span>
+        <div><strong id="season-label">Early spring</strong><span id="year-label">Year 1 · March</span></div>
+      </div>
+      <label class="weather-control" title="Garden weather">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 15a4 4 0 1 1 1-7.9A6 6 0 0 1 19 9a3 3 0 0 1-1 6H6Z" /></svg>
+        <select id="weather" aria-label="Garden weather">
+          <option value="clear">Clear</option>
+          <option value="rain">Rain</option>
+          <option value="mist">Mist</option>
+        </select>
+      </label>
+      <button class="icon-button" id="sound-toggle" aria-label="Turn ambient sound on" aria-pressed="false" title="Ambient sound">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 5 6 9H3v6h3l5 4V5Zm4 4c1 1 1 5 0 6m3-9c3 3 3 9 0 12" /></svg>
+        <span id="sound-label">Sound off</span>
+      </button>
+      <button class="icon-button" id="settings-toggle" aria-label="Open cultivation settings" aria-expanded="false" aria-controls="settings-panel" title="Cultivation widget">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h10m4 0h2M4 17h2m4 0h10M14 4v6M6 14v6" /></svg>
+      </button>
+    </div>
+  </header>
+
+  <aside class="panel vitality-panel">
+    <div class="eyebrow">Your tree</div>
+    <div class="tree-name">Japanese maple <span id="tree-age">1 yr</span></div>
+    <div class="harmony">
+      <div class="harmony-ring" id="harmony-ring"><span id="harmony-value">72</span></div>
+      <div><strong>Garden harmony</strong><p id="harmony-note">A quiet balance of light, air, and water.</p></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label"><span>Sunlight</span><span id="light-value">0%</span></div>
+      <div class="track"><i id="light-bar"></i></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label"><span>Airflow</span><span id="air-value">0%</span></div>
+      <div class="track"><i id="air-bar"></i></div>
+    </div>
+    <div class="metric">
+      <div class="metric-label"><span>Hydration</span><span id="water-value">0%</span></div>
+      <div class="track"><i id="water-bar"></i></div>
+    </div>
+    <div class="divider"></div>
+    <p class="care-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M12 3c4 4 6 7 6 10a6 6 0 0 1-12 0c0-3 2-6 6-10Z" /></svg>
+      Care whisper
+    </p>
+    <p id="care-tip">Let your eyes wander through the branches.</p>
+    <div class="intention">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="8" /><path d="m8 12 3 3 5-6" /></svg>
+      <span id="intention-text">Intention: let light reach the inner leaves.</span>
+    </div>
+  </aside>
+
+  <aside class="panel settings-panel hidden" id="settings-panel" aria-label="Cultivation widget">
+    <div class="settings-head" id="cultivation-handle" title="Drag to move widget">
+      <div class="widget-title">
+        <svg viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="3" r="1" /><circle cx="10" cy="3" r="1" /><circle cx="4" cy="8" r="1" /><circle cx="10" cy="8" r="1" /><circle cx="4" cy="13" r="1" /><circle cx="10" cy="13" r="1" /></svg>
+        <h2>Cultivation</h2>
+      </div>
+      <div class="widget-actions">
+        <button class="close-button" id="cultivation-collapse" aria-label="Collapse cultivation widget" aria-expanded="true" title="Collapse widget"><span id="cultivation-collapse-icon">−</span></button>
+        <button class="close-button" id="close-settings" aria-label="Close cultivation widget">×</button>
+      </div>
+    </div>
+    <div id="cultivation-body">
+    <div class="control">
+      <label for="depth">Branch complexity <output id="depth-output">6</output></label>
+      <input id="depth" type="range" min="4" max="7" step="1" value="6" />
+    </div>
+    <div class="control">
+      <label for="spread">Branch spread <output id="spread-output">0.55</output></label>
+      <input id="spread" type="range" min="0.25" max="0.85" step="0.01" value="0.55" />
+    </div>
+    <div class="control">
+      <label for="gnarl">Trunk gnarl <output id="gnarl-output">0.45</output></label>
+      <input id="gnarl" type="range" min="0" max="0.8" step="0.01" value="0.45" />
+    </div>
+    <div class="control">
+      <label for="leaves">Foliage density <output id="leaves-output">16</output></label>
+      <input id="leaves" type="range" min="6" max="28" step="1" value="16" />
+    </div>
+    <button class="primary-button" id="new-tree">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22v-8m0 3-4-4m4 1 4-4M5 13a7 7 0 0 1 14 0M8 22h8" /></svg>
+      Grow a new seed
+    </button>
+    <p class="settings-note">A new seed replaces this tree, but Time Rewind can bring it back.</p>
+    </div>
+  </aside>
+
+  <div class="coach" id="coach">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="7" y="2" width="10" height="18" rx="5" /><path d="M12 2v6m-5 12-2 2m12-2 2 2" /></svg>
+    <p><strong>Make room for light.</strong><br /><span id="coach-text">Drag to orbit · Scroll to zoom<br />Click a highlighted branch to prune</span></p>
+    <button id="dismiss-coach" aria-label="Dismiss instructions">×</button>
+  </div>
+
+  <div class="ritual-actions">
+    <button class="ritual-button" id="mist-button" data-tool="mist" aria-pressed="false" title="Choose where to mist">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9 9V5h6v4M8 9h8l1 12H7L8 9Zm3-6V1m4 3 2-2m-8 2L7 2M3 12H1m22 0h-2M4 7 2 6m18 1 2-1" /></svg>
+      <span>Mist leaves</span>
+    </button>
+    <button class="ritual-button" id="moss-button" data-tool="moss" aria-pressed="false" title="Choose where to brush moss">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m5 19 9-9m-6 6 5 5M14 4l6 6m-8-4 6 6M4 15l5 5M3 21h7" /></svg>
+      <span>Brush moss</span>
+    </button>
+    <button class="ritual-button" id="sweep-button" data-tool="sweep" aria-pressed="false" title="Choose where to sweep the table">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m15 3 6 6M5 21l7-11 4 4L9 22H3l2-1Zm3-7-2-2m7-1-2-2M2 18l4 4" /></svg>
+      <span>Sweep table</span>
+    </button>
+  </div>
+
+  <div class="bottom-area">
+    <div class="toolbar" role="toolbar" aria-label="Bonsai tools">
+      <button class="tool active" id="prune-tool" data-tool="prune" aria-pressed="true" title="Prune (V)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><circle cx="6" cy="7" r="3" /><circle cx="6" cy="17" r="3" /><path d="m8.5 8.5L20 19M8.5 15.5 20 5m-7 7 2 2" /></svg>
+        <span>Prune</span><kbd>V</kbd>
+      </button>
+      <button class="tool" id="trim-tool" data-tool="trim" aria-pressed="false" title="Trim individual leaves (T)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.35"><path d="M12 21V10m0 5-4-4m4 1 4-4" /><path d="M5 11C2 7 5 3 9 5c1-4 7-3 7 1 4-1 5 4 2 6-3 2-10 1-13-1Z" /><path d="m16 16 5 5m-5 0 5-5" /></svg>
+        <span>Trim</span><kbd>T</kbd>
+      </button>
+      <button class="tool" id="wire-tool" data-tool="wire" aria-pressed="false" title="Wire and bend (W)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><path d="M4 20C19 19 4 9 18 5M3 16l4 4m1-10 4 4m1-7 4 4m-9 5 4 4" /></svg>
+        <span>Wire</span><kbd>W</kbd>
+      </button>
+      <div class="toolbar-divider"></div>
+      <button class="tool" id="undo-button" title="Time Rewind (Ctrl+Z)" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.45"><path d="M9 7 4 12l5 5M5 12h8a6 6 0 0 1 6 6" /></svg>
+        <span>Rewind</span>
+      </button>
+    </div>
+    <div class="grow-panel">
+      <label for="grow-months">Time-lapse</label>
+      <select id="grow-months" aria-label="Months to advance">
+        <option value="1">1 month</option>
+        <option value="3" selected>3 months</option>
+        <option value="6">6 months</option>
+      </select>
+      <button class="primary-button" id="grow-button">
+        <span>Let it grow</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14m-5-5 5 5-5 5" /></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="hover-tooltip" role="tooltip"><strong id="hover-title"></strong><span id="hover-detail"></span></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="loading"><div><div class="loader-ring"></div><p>Growing your bonsai…</p></div></div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    const $ = id => document.getElementById(id);
+    const clamp = THREE.MathUtils.clamp;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xe8e2d7);
+    scene.fog = new THREE.FogExp2(0xe8e2d7, 0.022);
+
+    const camera = new THREE.PerspectiveCamera(innerWidth < 760 ? 68 : 39, innerWidth / innerHeight, 0.025, 100);
+    camera.position.set(6.6, 5.2, 9.4);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    $('scene').appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 2.25, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.065;
+    controls.minDistance = 0.22;
+    controls.maxDistance = 17;
+    controls.zoomToCursor = false;
+    controls.minPolarAngle = 0.2;
+    controls.maxPolarAngle = Math.PI * 0.49;
+    controls.enablePan = true;
+
+    scene.add(new THREE.HemisphereLight(0xfff9e9, 0x75806d, 2.25));
+    const sun = new THREE.DirectionalLight(0xfff1d7, 3.4);
+    sun.position.set(-4.5, 9, 6);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -7;
+    sun.shadow.camera.right = 7;
+    sun.shadow.camera.top = 8;
+    sun.shadow.camera.bottom = -5;
+    sun.shadow.camera.near = 1;
+    sun.shadow.camera.far = 25;
+    sun.shadow.bias = -0.0005;
+    scene.add(sun);
+    const fill = new THREE.DirectionalLight(0xc9d8cf, 1.2);
+    fill.position.set(5, 4, -5);
+    scene.add(fill);
+
+    function createBarkTextures() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 512;
+      const context = canvas.getContext('2d');
+      let seed = 918273;
+      const random = () => {
+        seed = seed * 16807 % 2147483647;
+        return (seed - 1) / 2147483646;
+      };
+      const image = context.createImageData(canvas.width, canvas.height);
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const index = (y * canvas.width + x) * 4;
+          const ridges = Math.sin(y * 0.115 + Math.sin(x * 0.017) * 1.8) * 13 + Math.sin(y * 0.31 + x * 0.006) * 5;
+          const value = clamp(174 + ridges + (random() - 0.5) * 27, 95, 215);
+          image.data[index] = value + 13;
+          image.data[index + 1] = value + 5;
+          image.data[index + 2] = value - 4;
+          image.data[index + 3] = 255;
+        }
+      }
+      context.putImageData(image, 0, 0);
+      for (let i = 0; i < 190; i++) {
+        const startY = random() * canvas.height;
+        const drift = 3 + random() * 13;
+        const phase = random() * Math.PI * 2;
+        context.beginPath();
+        for (let x = -20; x <= canvas.width + 20; x += 18) {
+          const y = startY + Math.sin(x * 0.018 + phase) * drift + Math.sin(x * 0.061 + phase) * 2;
+          if (x === -20) context.moveTo(x, y);
+          else context.lineTo(x, y);
+        }
+        context.strokeStyle = `rgba(42, 29, 20, ${0.12 + random() * 0.28})`;
+        context.lineWidth = 0.6 + random() * 2.8;
+        context.stroke();
+        if (i % 3 === 0) {
+          context.translate(0, 2.2);
+          context.strokeStyle = 'rgba(232, 215, 190, 0.12)';
+          context.lineWidth = 0.8;
+          context.stroke();
+          context.translate(0, -2.2);
+        }
+      }
+      for (let i = 0; i < 14; i++) {
+        context.beginPath();
+        context.ellipse(random() * canvas.width, random() * canvas.height, 10 + random() * 25, 3 + random() * 8, 0, 0, Math.PI * 2);
+        context.strokeStyle = 'rgba(48, 30, 20, 0.3)';
+        context.lineWidth = 1.5 + random() * 2;
+        context.stroke();
+      }
+      const color = new THREE.CanvasTexture(canvas);
+      color.colorSpace = THREE.SRGBColorSpace;
+      color.wrapS = color.wrapT = THREE.RepeatWrapping;
+      color.repeat.set(1.5, 1);
+      color.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      const bump = new THREE.CanvasTexture(canvas);
+      bump.wrapS = bump.wrapT = THREE.RepeatWrapping;
+      bump.repeat.set(1.5, 1);
+      bump.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return { color, bump };
+    }
+
+    const barkTextures = createBarkTextures();
+    const barkMaterial = new THREE.MeshStandardMaterial({
+      color: 0xc7b39e,
+      map: barkTextures.color,
+      bumpMap: barkTextures.bump,
+      bumpScale: 0.03,
+      roughness: 0.93
+    });
+    const youngBarkMaterial = new THREE.MeshStandardMaterial({
+      color: 0xc69b80,
+      map: barkTextures.color,
+      bumpMap: barkTextures.bump,
+      bumpScale: 0.026,
+      roughness: 0.84
+    });
+    const highlightMaterial = new THREE.MeshStandardMaterial({ color: 0xa88b56, emissive: 0x6a4d20, emissiveIntensity: 0.34, roughness: 0.75 });
+    const wireHighlightMaterial = new THREE.MeshStandardMaterial({ color: 0xb37950, emissive: 0x5c2914, emissiveIntensity: 0.3, roughness: 0.65 });
+    function createMapleLeafGeometry() {
+      const points = [
+        [0, -0.4], [-0.12, -0.27], [-0.47, -0.41], [-0.37, -0.2],
+        [-0.7, -0.18], [-0.42, -0.01], [-0.77, 0.13], [-0.37, 0.13],
+        [-0.55, 0.47], [-0.22, 0.28], [-0.24, 0.67], [-0.075, 0.4],
+        [0, 0.82], [0.075, 0.4], [0.24, 0.67], [0.22, 0.28],
+        [0.55, 0.47], [0.37, 0.13], [0.77, 0.13], [0.42, -0.01],
+        [0.7, -0.18], [0.37, -0.2], [0.47, -0.41], [0.12, -0.27]
+      ];
+      const outline = [];
+      points.forEach((point, index) => {
+        const next = points[(index + 1) % points.length];
+        outline.push(new THREE.Vector2(point[0], point[1]));
+        const midpoint = new THREE.Vector2((point[0] + next[0]) * 0.5, (point[1] + next[1]) * 0.5);
+        const edge = new THREE.Vector2(next[0] - point[0], next[1] - point[1]).normalize();
+        const tooth = index % 2 === 0 ? 0.009 : -0.009;
+        midpoint.add(new THREE.Vector2(-edge.y, edge.x).multiplyScalar(tooth));
+        outline.push(midpoint);
+      });
+      const shape = new THREE.Shape(outline);
+      const geometry = new THREE.ShapeGeometry(shape, 2);
+      const positions = geometry.attributes.position;
+      const uvs = geometry.attributes.uv;
+      for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i);
+        const y = positions.getY(i);
+        positions.setZ(i, Math.cos(y * 2.4) * 0.025 + x * x * 0.045);
+        uvs.setXY(i, (x + 0.8) / 1.6, (y + 0.43) / 1.28);
+      }
+      geometry.computeVertexNormals();
+      return geometry;
+    }
+
+    function createLeafTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 256;
+      const context = canvas.getContext('2d');
+      const gradient = context.createRadialGradient(128, 145, 10, 128, 128, 170);
+      gradient.addColorStop(0, '#f4f4e9');
+      gradient.addColorStop(0.6, '#e4e8d8');
+      gradient.addColorStop(1, '#cbd3bd');
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, 256, 256);
+      context.strokeStyle = 'rgba(79, 96, 57, 0.3)';
+      context.lineCap = 'round';
+      const origin = [128, 205];
+      const veins = [[128, 22], [73, 57], [33, 105], [48, 169], [82, 202], [183, 57], [223, 105], [208, 169], [174, 202]];
+      veins.forEach((point, index) => {
+        context.beginPath();
+        context.moveTo(...origin);
+        context.lineTo(point[0], point[1]);
+        context.lineWidth = index === 0 ? 2.3 : 1.4;
+        context.stroke();
+        for (let step = 0.35; step < 0.85; step += 0.22) {
+          const x = origin[0] + (point[0] - origin[0]) * step;
+          const y = origin[1] + (point[1] - origin[1]) * step;
+          const direction = point[0] < 128 ? -1 : 1;
+          context.beginPath();
+          context.moveTo(x, y);
+          context.lineTo(x + direction * 13, y - 12);
+          context.lineWidth = 0.65;
+          context.stroke();
+        }
+      });
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return texture;
+    }
+
+    const mapleLeafGeometry = createMapleLeafGeometry();
+    const leafTexture = createLeafTexture();
+    const leafMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: leafTexture,
+      roughness: 0.76,
+      side: THREE.DoubleSide,
+      shadowSide: THREE.DoubleSide
+    });
+    const copperMaterial = new THREE.MeshStandardMaterial({ color: 0xa96f45, metalness: 0.65, roughness: 0.42 });
+    const rawWoodMaterial = new THREE.MeshStandardMaterial({ color: 0xd0ad79, roughness: 0.9 });
+    const healingWoodMaterial = new THREE.MeshStandardMaterial({ color: 0x9c7955, roughness: 0.94 });
+    const callusMaterial = new THREE.MeshStandardMaterial({ color: 0x806047, roughness: 1 });
+    const twigMaterial = new THREE.MeshStandardMaterial({ color: 0x71503d, roughness: 0.88 });
+    const grooveMaterial = new THREE.MeshStandardMaterial({ color: 0x655040, roughness: 1 });
+    const knotMaterial = new THREE.MeshStandardMaterial({ color: 0x51382a, roughness: 0.96 });
+    const dropletMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xd8f2f2,
+      roughness: 0.06,
+      metalness: 0.08,
+      transmission: 0.42,
+      transparent: true,
+      opacity: 0.82,
+      clearcoat: 1,
+      clearcoatRoughness: 0.04,
+      ior: 1.33,
+      depthWrite: false
+    });
+
+    const treeGroup = new THREE.Group();
+    const woundGroup = new THREE.Group();
+    const mossGroup = new THREE.Group();
+    const dropletGroup = new THREE.Group();
+    scene.add(treeGroup, woundGroup, mossGroup, dropletGroup);
+
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(200, 200),
+      new THREE.MeshStandardMaterial({ color: 0xded8cc, roughness: 1 })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.96;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const table = new THREE.Mesh(
+      new THREE.CylinderGeometry(5.4, 5.55, 0.34, 80),
+      new THREE.MeshStandardMaterial({ color: 0x72543d, roughness: 0.72 })
+    );
+    table.position.y = -0.79;
+    table.receiveShadow = true;
+    table.castShadow = true;
+    scene.add(table);
+
+    const tableInset = new THREE.Mesh(
+      new THREE.CylinderGeometry(5.12, 5.12, 0.012, 80),
+      new THREE.MeshStandardMaterial({ color: 0x806148, roughness: 0.83 })
+    );
+    tableInset.position.y = -0.613;
+    tableInset.receiveShadow = true;
+    scene.add(tableInset);
+
+    const potGroup = new THREE.Group();
+    potGroup.scale.z = 0.74;
+    const ceramic = new THREE.MeshStandardMaterial({ color: 0x53645c, roughness: 0.38, metalness: 0.08 });
+    const potProfile = [
+      new THREE.Vector2(1.64, -0.59), new THREE.Vector2(1.77, -0.56),
+      new THREE.Vector2(1.94, -0.35), new THREE.Vector2(2.14, 0.18),
+      new THREE.Vector2(2.18, 0.29), new THREE.Vector2(2.17, 0.37),
+      new THREE.Vector2(2.02, 0.38), new THREE.Vector2(1.97, 0.25)
+    ];
+    const pot = new THREE.Mesh(new THREE.LatheGeometry(potProfile, 64), ceramic);
+    pot.castShadow = true;
+    pot.receiveShadow = true;
+    potGroup.add(pot);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(2.095, 0.085, 10, 64), ceramic);
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.345;
+    rim.castShadow = true;
+    potGroup.add(rim);
+    const soil = new THREE.Mesh(
+      new THREE.SphereGeometry(1.98, 48, 20, 0, Math.PI * 2, 0, Math.PI * 0.52),
+      new THREE.MeshStandardMaterial({ color: 0x35382a, roughness: 1 })
+    );
+    soil.scale.set(1, 0.14, 1);
+    soil.position.y = 0.245;
+    soil.receiveShadow = true;
+    potGroup.add(soil);
+    scene.add(potGroup);
+
+    const rngFor = seed => {
+      let value = Math.max(1, Math.floor(seed) % 2147483647);
+      return () => {
+        value = value * 16807 % 2147483647;
+        return (value - 1) / 2147483646;
+      };
+    };
+
+    function buildMoss() {
+      disposeChildren(mossGroup);
+      const baseCount = Math.max(80, Math.floor(moss * 3.4));
+      const count = baseCount + mossPatches.length * 70;
+      const geometry = new THREE.SphereGeometry(1, 7, 5);
+      const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+      const mesh = new THREE.InstancedMesh(geometry, material, count);
+      const random = rngFor(7351);
+      const dummy = new THREE.Object3D();
+      const color = new THREE.Color();
+      const writeInstance = (index, x, y, z, size) => {
+        dummy.position.set(x, y, z);
+        dummy.rotation.set(random(), random() * Math.PI, random());
+        dummy.scale.set(size * 1.5, size * 0.48, size * 1.25);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(index, dummy.matrix);
+        color.setHSL(0.19 + random() * 0.055, 0.32 + moss / 350, 0.19 + random() * 0.13, THREE.SRGBColorSpace);
+        mesh.setColorAt(index, color);
+      };
+      for (let i = 0; i < baseCount; i++) {
+        const angle = random() * Math.PI * 2;
+        const distance = 0.35 + Math.sqrt(random()) * 1.52;
+        writeInstance(i, Math.cos(angle) * distance, 0.385 + random() * 0.025, Math.sin(angle) * distance * 0.74, 0.025 + random() * 0.06);
+      }
+      mossPatches.forEach((patch, patchIndex) => {
+        for (let i = 0; i < 70; i++) {
+          const angle = random() * Math.PI * 2;
+          const distance = Math.sqrt(random()) * patch.radius;
+          writeInstance(
+            baseCount + patchIndex * 70 + i,
+            patch.position[0] + Math.cos(angle) * distance,
+            patch.position[1] + 0.025 + random() * 0.025,
+            patch.position[2] + Math.sin(angle) * distance,
+            0.03 + random() * 0.055
+          );
+        }
+      });
+      mesh.receiveShadow = true;
+      mesh.castShadow = true;
+      mossGroup.add(mesh);
+    }
+
+    const rainCount = 650;
+    const rainPositions = new Float32Array(rainCount * 3);
+    const rainRandom = rngFor(8192);
+    for (let i = 0; i < rainCount; i++) {
+      rainPositions[i * 3] = (rainRandom() - 0.5) * 18;
+      rainPositions[i * 3 + 1] = rainRandom() * 12;
+      rainPositions[i * 3 + 2] = (rainRandom() - 0.5) * 14;
+    }
+    const rainGeometry = new THREE.BufferGeometry();
+    rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+    const rain = new THREE.Points(rainGeometry, new THREE.PointsMaterial({ color: 0xb9cbd0, size: 0.035, transparent: true, opacity: 0.58, depthWrite: false }));
+    rain.visible = false;
+    scene.add(rain);
+
+    const mistCount = 170;
+    const mistPositions = new Float32Array(mistCount * 3);
+    const mistGeometry = new THREE.BufferGeometry();
+    mistGeometry.setAttribute('position', new THREE.BufferAttribute(mistPositions, 3));
+    const mistSpray = new THREE.Points(mistGeometry, new THREE.PointsMaterial({ color: 0xe5f5ee, size: 0.045, transparent: true, opacity: 0.78, depthWrite: false }));
+    mistSpray.visible = false;
+    scene.add(mistSpray);
+    let mistUntil = 0;
+
+    let rngState = 108;
+    let nextNodeId = 1;
+    const rand = () => {
+      rngState = rngState * 16807 % 2147483647;
+      return (rngState - 1) / 2147483646;
+    };
+
+    class TreeNode {
+      constructor(start, end, radiusStart, radiusEnd, depth, parent = null, bend = null) {
+        this.id = nextNodeId++;
+        this.start = start.clone();
+        this.end = end.clone();
+        this.radiusStart = radiusStart;
+        this.radiusEnd = radiusEnd;
+        this.depth = depth;
+        this.parent = parent;
+        this.children = [];
+        this.pruned = false;
+        this.bend = bend ? bend.clone() : new THREE.Vector3();
+        this.seed = Math.floor(rand() * 1000000000);
+        this.wired = 0;
+        this.lastPruned = -100;
+      }
+    }
+
+    let params = { depth: 6, spread: 0.55, gnarl: 0.45, leaves: 16 };
+    let activeSeed = 108;
+    let root;
+    let month = 2;
+    let year = 1;
+    let totalMonths = 0;
+    let hydration = 80;
+    let moss = 68;
+    let mossPatches = [];
+    let waterDroplets = [];
+    let dropletsDirty = false;
+    let rainDropletTimer = 0;
+    let wounds = [];
+    let trimmedLeaves = new Set();
+    let activeTrimmedLeafCount = 0;
+    let history = [];
+    let harmonyAchieved = false;
+    let timeAdvancing = false;
+    let weather = 'clear';
+    let activeTool = 'prune';
+    let hoveredNode = null;
+    let hoveredLeaf = null;
+    let branchMeshes = [];
+    let leafRecords = [];
+    let instancedLeaves = null;
+    let renderQueued = false;
+    let clickStart = null;
+    let wireDrag = null;
+    let lastPointer = null;
+    let toastTimer;
+
+    function makeNode(parent, direction, length, radiusStart, radiusEnd) {
+      const start = parent ? parent.end.clone() : new THREE.Vector3(0, 0.39, 0);
+      const end = start.clone().addScaledVector(direction, length);
+      const curvature = !parent || parent.depth < 2 ? 0.43 : 0.25;
+      const bend = new THREE.Vector3(
+        (rand() - 0.5) * params.gnarl * length * curvature,
+        (rand() - 0.5) * params.gnarl * length * 0.07,
+        (rand() - 0.5) * params.gnarl * length * curvature
+      );
+      const node = new TreeNode(start, end, radiusStart, radiusEnd, parent ? parent.depth + 1 : 0, parent, bend);
+      if (parent) parent.children.push(node);
+      return node;
+    }
+
+    function generateTree(seed) {
+      rngState = Math.max(1, seed % 2147483647);
+      nextNodeId = 1;
+      const trunkDirection = new THREE.Vector3(0.19, 1, -0.075).normalize();
+      const rootLength = 1.02;
+      const treeRoot = makeNode(null, trunkDirection, rootLength, 0.38, 0.285);
+
+      function grow(node, direction, length, radius, level) {
+        if (level >= params.depth) return;
+        const count = level < 2 ? 2 : (rand() > 0.68 ? 3 : 2);
+        for (let i = 0; i < count; i++) {
+          const leader = i === 0;
+          const dir = direction.clone();
+          const yaw = i * Math.PI * 2 / count + level * 1.51 + (rand() - 0.5) * (0.65 + params.gnarl);
+          let perpendicular = new THREE.Vector3(-dir.z, 0, dir.x);
+          if (perpendicular.lengthSq() < 0.001) perpendicular.set(1, 0, 0);
+          perpendicular.normalize().applyAxisAngle(dir, yaw);
+          const spread = params.spread * (leader ? (level < 2 ? 0.34 : 0.47) : 1.12 + rand() * 0.35);
+          dir.applyAxisAngle(perpendicular, spread);
+          dir.y += leader ? (level > 2 ? 0.08 : 0.015) : (level < 3 ? -0.28 : 0.035);
+          dir.normalize();
+          const nextLength = length * (leader ? 0.82 : 0.73) * (0.9 + rand() * 0.2);
+          const nextRadius = radius * (leader ? 0.76 : 0.55);
+          const child = makeNode(node, dir, nextLength, radius * 0.94, nextRadius);
+          grow(child, dir, nextLength, nextRadius, level + 1);
+        }
+      }
+
+      grow(treeRoot, trunkDirection, rootLength, 0.285, 0);
+      return treeRoot;
+    }
+
+    function branchCurve(node) {
+      const middle = node.start.clone().lerp(node.end, 0.5).add(node.bend);
+      const length = Math.max(0.04, node.start.distanceTo(node.end));
+      const outgoing = node.end.clone().sub(middle).normalize();
+      const incoming = node.parent ? branchCurve(node.parent).getTangentAt(1).normalize() : outgoing.clone();
+      const startHandle = node.start.clone().addScaledVector(incoming, Math.min(length * 0.3, node.radiusStart * 2.4));
+      const endHandle = node.end.clone().addScaledVector(outgoing, -Math.min(length * 0.32, Math.max(length * 0.12, node.radiusEnd * 3)));
+      return new THREE.CubicBezierCurve3(node.start, startHandle, endHandle, node.end);
+    }
+
+    function taperedGeometry(curve, radiusStart, radiusEnd, segments = 18, radial = 10, character = 0.06, seed = 0) {
+      const geometry = new THREE.TubeGeometry(curve, segments, 1, radial, false);
+      const positions = geometry.attributes.position;
+      const ringSize = radial + 1;
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const center = curve.getPointAt(t);
+        const baseRadius = THREE.MathUtils.lerp(radiusStart, radiusEnd, t);
+        const longitudinal = 1 + Math.sin(t * 11 + seed * 0.13) * character * 0.16 * (1 - t);
+        for (let j = 0; j < ringSize; j++) {
+          const index = i * ringSize + j;
+          const angle = j / radial * Math.PI * 2;
+          const ridges = 1 + character * (
+            Math.sin(angle * 3 + seed + t * 1.7) * 0.55 +
+            Math.sin(angle * 7 - seed * 0.7 + t * 4.2) * 0.28 +
+            Math.sin(angle * 2 + t * 13 + seed) * 0.17
+          );
+          const radius = Math.max(0.001, baseRadius * ridges * longitudinal);
+          positions.setXYZ(
+            index,
+            center.x + (positions.getX(index) - center.x) * radius,
+            center.y + (positions.getY(index) - center.y) * radius,
+            center.z + (positions.getZ(index) - center.z) * radius
+          );
+        }
+      }
+      const uvs = geometry.attributes.uv;
+      const lengthScale = Math.max(0.05, curve.getLength()) * 1.3;
+      const circumferenceScale = Math.max(0.45, (radiusStart + radiusEnd) * 2.4);
+      for (let i = 0; i < uvs.count; i++) {
+        uvs.setXY(i, uvs.getX(i) * lengthScale, uvs.getY(i) * circumferenceScale);
+      }
+      geometry.computeVertexNormals();
+      return geometry;
+    }
+
+    function disposeChildren(group) {
+      group.traverse(object => {
+        if (object.geometry) object.geometry.dispose();
+      });
+      while (group.children.length) group.remove(group.children[0]);
+    }
+
+    function traverseLiving(node, callback) {
+      if (!node || node.pruned) return;
+      callback(node);
+      node.children.forEach(child => traverseLiving(child, callback));
+    }
+
+    function subtree(node, includePruned = false) {
+      const nodes = [];
+      if (includePruned) {
+        const visit = current => {
+          nodes.push(current);
+          current.children.forEach(visit);
+        };
+        visit(node);
+      } else {
+        traverseLiving(node, current => nodes.push(current));
+      }
+      return nodes;
+    }
+
+    function hasLivingChildren(node) {
+      return node.children.some(child => !child.pruned);
+    }
+
+    function terminals() {
+      const result = [];
+      traverseLiving(root, node => {
+        if (!hasLivingChildren(node)) result.push(node);
+      });
+      return result;
+    }
+
+    function seasonDensity() {
+      if (month === 11 || month === 0 || month === 1) return 0.2;
+      if (month === 10) return 0.62;
+      return 1;
+    }
+
+    function leafColor(node, index, random) {
+      const color = new THREE.Color();
+      const variation = random();
+      if ((month === 2 || month === 3) && variation > 0.95) {
+        color.setHSL(0.015 + random() * 0.03, 0.38, 0.3 + random() * 0.09, THREE.SRGBColorSpace);
+      } else if (month >= 8 && month <= 10) {
+        color.setHSL(0.015 + random() * 0.095, 0.64 + random() * 0.24, 0.28 + random() * 0.15, THREE.SRGBColorSpace);
+      } else if (month === 11 || month <= 1) {
+        color.setHSL(0.085, 0.24, 0.23 + random() * 0.1, THREE.SRGBColorSpace);
+      } else if (month >= 2 && month <= 4) {
+        color.setHSL(0.25 + random() * 0.055, 0.43 + random() * 0.2, 0.25 + random() * 0.12, THREE.SRGBColorSpace);
+      } else {
+        color.setHSL(0.285 + random() * 0.045, 0.4 + random() * 0.2, 0.19 + random() * 0.12, THREE.SRGBColorSpace);
+      }
+      return color;
+    }
+
+    function rebuildDroplets() {
+      disposeChildren(dropletGroup);
+      const leavesById = new Map(leafRecords.map(record => [record.id, record]));
+      waterDroplets = waterDroplets.filter(droplet => droplet.life > 0 && leavesById.has(droplet.leafId));
+      dropletsDirty = false;
+      if (!waterDroplets.length) return;
+      const geometry = new THREE.SphereGeometry(1, 10, 8);
+      const mesh = new THREE.InstancedMesh(geometry, dropletMaterial, waterDroplets.length);
+      const dummy = new THREE.Object3D();
+      const local = new THREE.Vector3();
+      waterDroplets.forEach((droplet, index) => {
+        const record = leavesById.get(droplet.leafId);
+        local.fromArray(droplet.local).applyMatrix4(record.matrix);
+        dummy.position.copy(local);
+        dummy.position.y += droplet.size * 0.35;
+        dummy.rotation.set(0, droplet.rotation, 0);
+        dummy.scale.set(droplet.size, droplet.size * 0.68, droplet.size);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(index, dummy.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.renderOrder = 2;
+      dropletGroup.add(mesh);
+    }
+
+    function addDroplet(record, life, random = Math.random) {
+      const existing = waterDroplets.find(droplet => droplet.leafId === record.id);
+      if (existing) {
+        existing.life = Math.max(existing.life, life);
+        return;
+      }
+      if (waterDroplets.length >= 480) return;
+      waterDroplets.push({
+        leafId: record.id,
+        local: [(random() - 0.5) * 0.5, -0.04 + random() * 0.42, 0.065],
+        size: 0.006 + random() * 0.009,
+        rotation: random() * Math.PI * 2,
+        life
+      });
+      dropletsDirty = true;
+    }
+
+    function addDropletsAround(point, radius = 0.8, maximum = 100) {
+      const random = rngFor(Math.floor(performance.now() * 10));
+      const nearby = leafRecords.map(record => ({
+        record,
+        distance: new THREE.Vector3().setFromMatrixPosition(record.matrix).distanceTo(point)
+      })).filter(candidate => candidate.distance <= radius);
+      nearby.sort((a, b) => a.distance - b.distance);
+      nearby.slice(0, maximum).forEach(candidate => addDroplet(candidate.record, 150 + random() * 90, random));
+    }
+
+    function addRainDroplets(count) {
+      if (!leafRecords.length) return;
+      for (let i = 0; i < count; i++) {
+        const record = leafRecords[Math.floor(Math.random() * leafRecords.length)];
+        addDroplet(record, 80 + Math.random() * 80);
+      }
+    }
+
+    function updateWaterDroplets(delta) {
+      let expired = false;
+      waterDroplets.forEach(droplet => {
+        droplet.life -= delta * (weather === 'rain' ? 0.12 : 1);
+        if (droplet.life <= 0) expired = true;
+      });
+      if (expired) dropletsDirty = true;
+      if (weather === 'rain') {
+        rainDropletTimer += delta;
+        if (rainDropletTimer >= 0.35) {
+          rainDropletTimer = 0;
+          addRainDroplets(7);
+        }
+      } else {
+        rainDropletTimer = 0;
+      }
+      if (dropletsDirty) rebuildDroplets();
+    }
+
+    function addWire(node) {
+      if (!node.wired) return;
+      const curve = branchCurve(node);
+      const segments = 36;
+      const frames = curve.computeFrenetFrames(segments, false);
+      const points = [];
+      const turns = Math.max(3, node.start.distanceTo(node.end) * 5);
+      for (let i = 0; i <= segments; i++) {
+        const t = i / segments;
+        const angle = t * Math.PI * 2 * turns;
+        const radius = THREE.MathUtils.lerp(node.radiusStart, node.radiusEnd, t) * 1.16 + 0.008;
+        const point = curve.getPointAt(t)
+          .addScaledVector(frames.normals[i], Math.cos(angle) * radius)
+          .addScaledVector(frames.binormals[i], Math.sin(angle) * radius);
+        points.push(point);
+      }
+      const wire = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), segments, 0.009, 5, false),
+        copperMaterial
+      );
+      wire.castShadow = true;
+      treeGroup.add(wire);
+    }
+
+    function addBranchCollar(node) {
+      if (!node.parent || node.depth > 4 || node.radiusStart < 0.035) return;
+      const parent = node.parent;
+      const parentCurve = branchCurve(parent);
+      const childCurve = branchCurve(node);
+      const reach = Math.max(0.04, node.radiusStart * 1.55);
+      const parentT = 1 - clamp(reach / Math.max(0.05, parentCurve.getLength()), 0.02, 0.18);
+      const childT = clamp(reach * 1.25 / Math.max(0.05, childCurve.getLength()), 0.03, 0.2);
+      const start = parentCurve.getPointAt(parentT);
+      const end = childCurve.getPointAt(childT);
+      const curve = new THREE.CatmullRomCurve3([start, node.start.clone(), end]);
+      const radiusStart = THREE.MathUtils.lerp(parent.radiusStart, parent.radiusEnd, parentT) * 1.025;
+      const radiusEnd = THREE.MathUtils.lerp(node.radiusStart, node.radiusEnd, childT) * 1.025;
+      const collar = new THREE.Mesh(taperedGeometry(curve, radiusStart, radiusEnd, 12, 14, 0.025, node.seed), barkMaterial);
+      collar.castShadow = true;
+      collar.receiveShadow = true;
+      treeGroup.add(collar);
+    }
+
+    function addBarkDetails(node) {
+      if (node.depth > 2 || node.radiusStart < 0.07) return;
+      const random = rngFor(node.seed + 811);
+      const curve = branchCurve(node);
+      const segments = 22;
+      const frames = curve.computeFrenetFrames(segments, false);
+      const grooveCount = node.depth === 0 ? 7 : 4;
+      for (let groove = 0; groove < grooveCount; groove++) {
+        const angle = groove / grooveCount * Math.PI * 2 + random() * 0.45;
+        const points = [];
+        for (let i = 2; i <= segments - 2; i++) {
+          const t = i / segments;
+          const radius = THREE.MathUtils.lerp(node.radiusStart, node.radiusEnd, t) * 1.015;
+          const winding = angle + Math.sin(t * 8 + groove) * 0.055;
+          const point = curve.getPointAt(t)
+            .addScaledVector(frames.normals[i], Math.cos(winding) * radius)
+            .addScaledVector(frames.binormals[i], Math.sin(winding) * radius);
+          points.push(point);
+        }
+        const fissure = new THREE.Mesh(
+          new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 20, node.depth === 0 ? 0.0045 : 0.0028, 4, false),
+          grooveMaterial
+        );
+        treeGroup.add(fissure);
+      }
+
+      if (node.depth < 2) {
+        const t = 0.32 + random() * 0.36;
+        const index = Math.round(t * segments);
+        const outward = frames.normals[index].clone();
+        const radius = THREE.MathUtils.lerp(node.radiusStart, node.radiusEnd, t);
+        const knot = new THREE.Group();
+        knot.position.copy(curve.getPointAt(t)).addScaledVector(outward, radius * 1.02);
+        knot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), outward);
+        const knotRadius = Math.max(0.035, radius * 0.24);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(knotRadius, knotRadius * 0.2, 7, 26), grooveMaterial);
+        ring.scale.y = 1.35;
+        const center = new THREE.Mesh(new THREE.CircleGeometry(knotRadius * 0.72, 22), knotMaterial);
+        center.scale.y = 1.3;
+        center.position.z = 0.003;
+        knot.add(ring, center);
+        treeGroup.add(knot);
+      }
+    }
+
+    function addNebari() {
+      const random = rngFor(activeSeed + 431);
+      for (let i = 0; i < 10; i++) {
+        const angle = i / 10 * Math.PI * 2 + random() * 0.32;
+        const length = 0.75 + random() * 0.82;
+        const start = new THREE.Vector3(Math.cos(angle) * 0.1, 0.54, Math.sin(angle) * 0.1);
+        const middle = new THREE.Vector3(Math.cos(angle + 0.08) * length * 0.47, 0.43 + random() * 0.065, Math.sin(angle + 0.08) * length * 0.47);
+        const end = new THREE.Vector3(Math.cos(angle) * length, 0.35, Math.sin(angle) * length);
+        const curve = new THREE.CatmullRomCurve3([start, middle, end]);
+        const mesh = new THREE.Mesh(taperedGeometry(curve, 0.105 + random() * 0.055, 0.012, 22, 12, 0.11, i * 1.7), barkMaterial);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        treeGroup.add(mesh);
+
+        for (let rootlet = 0; rootlet < 2; rootlet++) {
+          const rootletAngle = angle + (rootlet === 0 ? -0.36 : 0.38) + (random() - 0.5) * 0.2;
+          const rootletStart = curve.getPointAt(0.5 + rootlet * 0.14);
+          const rootletLength = 0.3 + random() * 0.35;
+          const rootletEnd = rootletStart.clone().add(new THREE.Vector3(Math.cos(rootletAngle) * rootletLength, -0.035, Math.sin(rootletAngle) * rootletLength));
+          rootletEnd.y = 0.35;
+          const rootletMid = rootletStart.clone().lerp(rootletEnd, 0.52);
+          rootletMid.y += 0.025;
+          const rootletCurve = new THREE.CatmullRomCurve3([rootletStart, rootletMid, rootletEnd]);
+          const rootletMesh = new THREE.Mesh(taperedGeometry(rootletCurve, 0.035 + random() * 0.025, 0.004, 12, 7, 0.08, i + rootlet), youngBarkMaterial);
+          rootletMesh.castShadow = true;
+          treeGroup.add(rootletMesh);
+        }
+      }
+    }
+
+    function renderTree() {
+      renderQueued = false;
+      clearHover();
+      disposeChildren(treeGroup);
+      disposeChildren(woundGroup);
+      branchMeshes = [];
+      leafRecords = [];
+      activeTrimmedLeafCount = 0;
+      instancedLeaves = null;
+      addNebari();
+
+      traverseLiving(root, node => {
+        const curve = branchCurve(node);
+        const geometry = taperedGeometry(curve, node.radiusStart, node.radiusEnd, 24, 14, 0.04, node.seed * 0.013);
+        const material = barkMaterial;
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData.treeNode = node;
+        mesh.userData.baseMaterial = material;
+        treeGroup.add(mesh);
+        branchMeshes.push(mesh);
+        addBranchCollar(node);
+        addBarkDetails(node);
+        addWire(node);
+      });
+
+      const dummy = new THREE.Object3D();
+      const density = seasonDensity();
+      terminals().forEach(node => {
+        const random = rngFor(node.seed + 97);
+        const shootCount = 4 + Math.floor(random() * 3);
+        const nodeDirection = node.end.clone().sub(node.start).normalize();
+        for (let shoot = 0; shoot < shootCount; shoot++) {
+          const angle = shoot / shootCount * Math.PI * 2 + random() * 0.75;
+          const horizontal = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+          const reach = 0.23 + random() * 0.3 + node.radiusStart * 0.45;
+          const start = node.end.clone().addScaledVector(nodeDirection, -0.045);
+          const end = node.end.clone()
+            .addScaledVector(horizontal, reach)
+            .addScaledVector(nodeDirection, 0.045 + random() * 0.09);
+          end.y += (random() - 0.3) * 0.13;
+          const middle = start.clone().lerp(end, 0.52);
+          middle.y += 0.025 + random() * 0.045;
+          const twigCurve = new THREE.CatmullRomCurve3([start, middle, end]);
+          const twigRadius = clamp(node.radiusEnd * 0.24, 0.004, 0.013);
+          const twig = new THREE.Mesh(taperedGeometry(twigCurve, twigRadius, 0.0018, 12, 6, 0.025, shoot), twigMaterial);
+          twig.castShadow = true;
+          treeGroup.add(twig);
+
+          const count = Math.max(2, Math.round(params.leaves * density * (0.75 + random() * 0.25)));
+          for (let i = 0; i < count; i++) {
+            const leafId = `${node.id}:${shoot}:${i}`;
+            const t = clamp(0.18 + 0.82 * (i + 0.5) / count + (random() - 0.5) * 0.09, 0.08, 1);
+            const side = i % 2 === 0 ? -1 : 1;
+            const leafAngle = angle + side * (0.65 + random() * 0.5);
+            const offset = 0.035 + random() * 0.07;
+            dummy.position.copy(twigCurve.getPointAt(t));
+            dummy.position.x += Math.cos(leafAngle) * offset;
+            dummy.position.y += (random() - 0.5) * 0.055;
+            dummy.position.z += Math.sin(leafAngle) * offset;
+            dummy.rotation.set(-Math.PI / 2 + (random() - 0.5) * 0.72, leafAngle + random() * 1.35, (random() - 0.5) * 0.5);
+            const size = 0.085 + random() * 0.065;
+            dummy.scale.set(size * (0.88 + random() * 0.24), size, size);
+            dummy.updateMatrix();
+            const color = leafColor(node, i, random);
+            if (trimmedLeaves.has(leafId)) {
+              activeTrimmedLeafCount++;
+            } else {
+              leafRecords.push({ id: leafId, node, matrix: dummy.matrix.clone(), color });
+            }
+          }
+        }
+      });
+
+      if (leafRecords.length) {
+        instancedLeaves = new THREE.InstancedMesh(mapleLeafGeometry.clone(), leafMaterial, leafRecords.length);
+        leafRecords.forEach((record, index) => {
+          instancedLeaves.setMatrixAt(index, record.matrix);
+          instancedLeaves.setColorAt(index, record.color);
+        });
+        instancedLeaves.instanceMatrix.needsUpdate = true;
+        if (instancedLeaves.instanceColor) instancedLeaves.instanceColor.needsUpdate = true;
+        instancedLeaves.castShadow = true;
+        instancedLeaves.receiveShadow = true;
+        treeGroup.add(instancedLeaves);
+      }
+
+      const nodesById = new Map();
+      const indexNode = node => {
+        nodesById.set(node.id, node);
+        node.children.forEach(indexNode);
+      };
+      indexNode(root);
+      wounds.forEach(wound => {
+        const node = nodesById.get(wound.nodeId);
+        if (node) {
+          wound.position.copy(node.start);
+          wound.direction.copy(node.end).sub(node.start).normalize();
+        }
+        const group = new THREE.Group();
+        group.position.copy(wound.position);
+        group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), wound.direction);
+        const cap = new THREE.Mesh(new THREE.CircleGeometry(wound.radius * 0.91, 18), wound.age > 8 ? healingWoodMaterial : rawWoodMaterial);
+        cap.position.z = 0.008;
+        cap.scale.setScalar(Math.max(0.3, 1 - wound.age / 30));
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(wound.radius, wound.radius * 0.17, 7, 20), callusMaterial);
+        ring.scale.setScalar(1 + Math.min(0.28, wound.age / 45));
+        ring.castShadow = true;
+        group.add(cap, ring);
+        woundGroup.add(group);
+      });
+
+      rebuildDroplets();
+      if (lastPointer && !wireDrag && !timeAdvancing) updateHover(lastPointer);
+    }
+
+    function scheduleRender() {
+      if (renderQueued) return;
+      renderQueued = true;
+      requestAnimationFrame(renderTree);
+    }
+
+    function serializeNode(node) {
+      return {
+        id: node.id,
+        start: node.start.toArray(),
+        end: node.end.toArray(),
+        radiusStart: node.radiusStart,
+        radiusEnd: node.radiusEnd,
+        depth: node.depth,
+        pruned: node.pruned,
+        bend: node.bend.toArray(),
+        seed: node.seed,
+        wired: node.wired,
+        lastPruned: node.lastPruned,
+        children: node.children.map(serializeNode)
+      };
+    }
+
+    function deserializeNode(data, parent = null) {
+      const node = new TreeNode(
+        new THREE.Vector3().fromArray(data.start),
+        new THREE.Vector3().fromArray(data.end),
+        data.radiusStart,
+        data.radiusEnd,
+        data.depth,
+        parent,
+        new THREE.Vector3().fromArray(data.bend)
+      );
+      node.id = data.id;
+      node.pruned = data.pruned;
+      node.seed = data.seed;
+      node.wired = data.wired;
+      node.lastPruned = data.lastPruned;
+      node.children = data.children.map(child => deserializeNode(child, node));
+      return node;
+    }
+
+    function captureState() {
+      return {
+        tree: serializeNode(root),
+        nextNodeId,
+        rngState,
+        activeSeed,
+        params: { ...params },
+        month,
+        year,
+        totalMonths,
+        hydration,
+        moss,
+        harmonyAchieved,
+        trimmedLeaves: [...trimmedLeaves],
+        mossPatches: mossPatches.map(patch => ({ position: [...patch.position], radius: patch.radius })),
+        waterDroplets: waterDroplets.map(droplet => ({
+          leafId: droplet.leafId,
+          local: [...droplet.local],
+          size: droplet.size,
+          rotation: droplet.rotation,
+          life: droplet.life
+        })),
+        wounds: wounds.map(wound => ({
+          nodeId: wound.nodeId,
+          position: wound.position.toArray(),
+          direction: wound.direction.toArray(),
+          radius: wound.radius,
+          age: wound.age
+        }))
+      };
+    }
+
+    function pushSnapshot(snapshot) {
+      history.push(snapshot);
+      if (history.length > 30) history.shift();
+      updateUndo();
+    }
+
+    function pushHistory() {
+      pushSnapshot(captureState());
+    }
+
+    function restoreState(snapshot) {
+      root = deserializeNode(snapshot.tree);
+      nextNodeId = snapshot.nextNodeId;
+      rngState = snapshot.rngState;
+      activeSeed = snapshot.activeSeed;
+      params = { ...snapshot.params };
+      month = snapshot.month;
+      year = snapshot.year;
+      totalMonths = snapshot.totalMonths;
+      hydration = snapshot.hydration;
+      moss = snapshot.moss;
+      harmonyAchieved = snapshot.harmonyAchieved;
+      trimmedLeaves = new Set(snapshot.trimmedLeaves || []);
+      mossPatches = (snapshot.mossPatches || []).map(patch => ({ position: [...patch.position], radius: patch.radius }));
+      waterDroplets = (snapshot.waterDroplets || []).map(droplet => ({
+        leafId: droplet.leafId,
+        local: [...droplet.local],
+        size: droplet.size,
+        rotation: droplet.rotation,
+        life: droplet.life
+      }));
+      dropletsDirty = true;
+      wounds = snapshot.wounds.map(wound => ({
+        nodeId: wound.nodeId,
+        position: new THREE.Vector3().fromArray(wound.position),
+        direction: new THREE.Vector3().fromArray(wound.direction),
+        radius: wound.radius,
+        age: wound.age
+      }));
+      syncParameterInputs();
+      clearFallen();
+      buildMoss();
+      renderTree();
+      updateUI();
+    }
+
+    function undo() {
+      if (!history.length || timeAdvancing) return;
+      const snapshot = history.pop();
+      restoreState(snapshot);
+      updateUndo();
+      playTone(360, 0.18, 0.035, 'sine');
+      showToast('A little time, gently returned.');
+    }
+
+    function updateUndo() {
+      $('undo-button').disabled = !history.length || timeAdvancing;
+    }
+
+    function calculateMetrics() {
+      const tips = terminals();
+      if (!tips.length) return { light: 100, air: 100, harmony: Math.round(hydration * 0.3 + 70) };
+      let light = 0;
+      tips.forEach(tip => {
+        let shade = 0;
+        tips.forEach(other => {
+          if (other === tip) return;
+          const distance = tip.end.distanceTo(other.end);
+          if (distance < 0.78 && other.end.y > tip.end.y - 0.18) shade += 1 - distance / 1.15;
+        });
+        light += clamp(100 - shade * 15, 18, 100);
+      });
+      const trimRatio = activeTrimmedLeafCount / Math.max(1, leafRecords.length + activeTrimmedLeafCount);
+      light = Math.round(clamp(light / tips.length + trimRatio * 35, 18, 100));
+      const leafCount = tips.length * params.leaves * seasonDensity();
+      const air = Math.round(clamp(112 - Math.max(0, leafCount - 270) * 0.115 - Math.max(0, tips.length - 38) * 1.1 + trimRatio * 45, 16, 100));
+      const harmony = Math.round(light * 0.35 + air * 0.35 + hydration * 0.3);
+      return { light, air, harmony };
+    }
+
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const seasonNames = ['Deep winter', 'Late winter', 'Early spring', 'Spring', 'Late spring', 'Early summer', 'Summer', 'Late summer', 'Early autumn', 'Autumn', 'Late autumn', 'Winter'];
+    const seasonColors = ['#9aa7a4', '#a2aca0', '#91a87b', '#83a16e', '#7f9b69', '#66865e', '#5f7e57', '#7f8d5c', '#bd9659', '#bd7950', '#9f7456', '#98a19c'];
+
+    function updateUI() {
+      const metrics = calculateMetrics();
+      $('season-label').textContent = seasonNames[month];
+      $('year-label').textContent = `Year ${year} · ${monthNames[month]}`;
+      $('season-dot').style.background = seasonColors[month];
+      $('tree-age').textContent = `${year} ${year === 1 ? 'yr' : 'yrs'}`;
+      $('light-value').textContent = `${metrics.light}%`;
+      $('air-value').textContent = `${metrics.air}%`;
+      $('water-value').textContent = `${Math.round(hydration)}%`;
+      $('light-bar').style.width = `${metrics.light}%`;
+      $('air-bar').style.width = `${metrics.air}%`;
+      $('water-bar').style.width = `${hydration}%`;
+      $('light-bar').style.background = metrics.light < 45 ? '#b18b61' : '#7c9170';
+      $('air-bar').style.background = metrics.air < 45 ? '#b18b61' : '#7c9170';
+      $('water-bar').style.background = hydration < 35 ? '#b18b61' : '#7c9a9b';
+      $('harmony-value').textContent = metrics.harmony;
+      $('harmony-ring').style.background = `conic-gradient(var(--green) ${metrics.harmony}%, rgba(82, 107, 82, 0.12) 0)`;
+      $('harmony-note').textContent = metrics.harmony >= 80 ? 'The tree and garden are flourishing.' : 'A quiet balance of light, air, and water.';
+
+      let tip = 'Your tree is at ease. Observe its silhouette before the next cut.';
+      let intention = 'Intention: preserve the beauty of empty space.';
+      if (hydration < 35) {
+        tip = 'The leaves feel dry. Offer a fine mist before your next pruning.';
+        intention = 'Intention: restore the tree’s hydration.';
+      } else if (metrics.light < 55) {
+        tip = 'Inner leaves are shaded. Thin a crowded upper pad to invite sunlight in.';
+        intention = 'Intention: let light reach the inner leaves.';
+      } else if (metrics.air < 55) {
+        tip = 'The canopy is dense. Remove a crossing twig to let a breeze pass through.';
+        intention = 'Intention: open a path for the breeze.';
+      } else if (month === 11 || month <= 1) {
+        tip = 'Winter is for rest. Study the branch structure and make only deliberate cuts.';
+        intention = 'Intention: find clarity in the winter silhouette.';
+      } else if (wounds.some(wound => wound.age < 3)) {
+        tip = 'A fresh wound is healing. New energy will gather at the lower buds.';
+        intention = 'Intention: give the tree time to recover.';
+      }
+      $('care-tip').textContent = tip;
+      $('intention-text').textContent = intention;
+
+      if (metrics.harmony >= 82 && metrics.light >= 65 && metrics.air >= 65 && !harmonyAchieved) {
+        harmonyAchieved = true;
+        playBell();
+        showToast('The garden is in harmony. Light now moves like water.');
+      } else if (metrics.harmony < 68) {
+        harmonyAchieved = false;
+      }
+      updateUndo();
+    }
+
+    function growthCandidates() {
+      const candidates = terminals();
+      traverseLiving(root, node => {
+        if (totalMonths - node.lastPruned <= 12 && !candidates.includes(node)) candidates.push(node);
+      });
+      return candidates.filter(node => node.depth < params.depth + 3);
+    }
+
+    function growCycle() {
+      const candidates = growthCandidates();
+      if (!candidates.length || hydration < 12) return 0;
+      const maxY = Math.max(...candidates.map(node => node.end.y), 1);
+      const count = Math.min(8, Math.max(2, Math.round(candidates.length * 0.13)));
+      let grown = 0;
+      for (let i = 0; i < count; i++) {
+        const weights = candidates.map(node => {
+          const apex = 0.28 + 0.72 * node.end.y / maxY;
+          const redirected = totalMonths - node.lastPruned <= 12 ? 2.2 : 1;
+          return apex * apex * redirected * (0.35 + hydration / 130);
+        });
+        let pick = rand() * weights.reduce((sum, weight) => sum + weight, 0);
+        let selectedIndex = 0;
+        for (; selectedIndex < weights.length - 1; selectedIndex++) {
+          pick -= weights[selectedIndex];
+          if (pick <= 0) break;
+        }
+        const node = candidates[selectedIndex];
+        if (!node || node.children.filter(child => !child.pruned).length >= 4) continue;
+        const direction = node.end.clone().sub(node.start).normalize();
+        const yaw = rand() * Math.PI * 2;
+        let axis = new THREE.Vector3(-direction.z, 0, direction.x);
+        if (axis.lengthSq() < 0.001) axis.set(1, 0, 0);
+        axis.normalize().applyAxisAngle(direction, yaw);
+        direction.applyAxisAngle(axis, 0.3 + rand() * 0.5);
+        direction.y += node.depth > 2 ? 0.12 : 0.04;
+        direction.normalize();
+        const oldLength = node.start.distanceTo(node.end);
+        const length = Math.max(0.16, oldLength * (0.5 + rand() * 0.18));
+        const radius = Math.max(0.012, node.radiusEnd * 0.68);
+        makeNode(node, direction, length, node.radiusEnd * 0.9, radius * 0.66);
+        node.lastPruned = -100;
+        grown++;
+      }
+      return grown;
+    }
+
+    function simulateMonth() {
+      month++;
+      totalMonths++;
+      if (month > 11) {
+        month = 0;
+        year++;
+      }
+      hydration = Math.max(0, hydration - (weather === 'rain' ? 2 : 7));
+      moss = Math.max(15, moss - 2);
+      wounds.forEach(wound => wound.age++);
+      waterDroplets.forEach(droplet => { droplet.life -= 8; });
+      dropletsDirty = true;
+      traverseLiving(root, node => {
+        if (node.wired > 0) node.wired--;
+      });
+      let grown = 0;
+      if (totalMonths % 3 === 0) grown = growCycle();
+      if ((month === 9 || month === 10) && leafRecords.length) spawnNaturalFall(month === 10 ? 12 : 6);
+      return grown;
+    }
+
+    const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+    async function advanceTime() {
+      if (timeAdvancing) return;
+      timeAdvancing = true;
+      pushHistory();
+      clearHover();
+      $('grow-button').disabled = true;
+      $('prune-tool').disabled = true;
+      $('trim-tool').disabled = true;
+      $('wire-tool').disabled = true;
+      $('mist-button').disabled = true;
+      $('moss-button').disabled = true;
+      $('sweep-button').disabled = true;
+      updateUndo();
+      const months = Number($('grow-months').value);
+      let grown = 0;
+      for (let i = 0; i < months; i++) {
+        grown += simulateMonth();
+        renderTree();
+        updateUI();
+        buildMoss();
+        if (i < months - 1) await wait(330);
+      }
+      timeAdvancing = false;
+      $('grow-button').disabled = false;
+      $('prune-tool').disabled = false;
+      $('trim-tool').disabled = false;
+      $('wire-tool').disabled = false;
+      $('mist-button').disabled = false;
+      $('moss-button').disabled = false;
+      $('sweep-button').disabled = false;
+      updateUndo();
+      if (grown) {
+        playTone(520, 0.16, 0.025, 'sine');
+        showToast(`${grown} new shoots emerged. The highest tips drew the most energy.`);
+      } else if (hydration < 12) {
+        showToast('The tree is too dry to grow. Mist its leaves and try again.');
+      } else {
+        showToast('The seasons turned. Wounds softened and roots settled.');
+      }
+    }
+
+    const fallingLeafGeometry = mapleLeafGeometry.clone();
+    const fallingMaterials = [0x718550, 0x8e984f, 0xb78045, 0xa95e3e, 0x6f7d48].map(color => new THREE.MeshStandardMaterial({ color, map: leafTexture, roughness: 0.86, side: THREE.DoubleSide }));
+    let fallenLeaves = [];
+
+    function spawnLeaf(position, natural = false) {
+      if (fallenLeaves.length > 130) {
+        const oldest = fallenLeaves.shift();
+        scene.remove(oldest.mesh);
+      }
+      const materialIndex = month >= 8 && month <= 10 ? 2 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * fallingMaterials.length);
+      const mesh = new THREE.Mesh(fallingLeafGeometry, fallingMaterials[materialIndex]);
+      mesh.position.copy(position);
+      mesh.scale.setScalar(0.09 + Math.random() * 0.04);
+      mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      scene.add(mesh);
+      fallenLeaves.push({
+        mesh,
+        velocity: new THREE.Vector3((Math.random() - 0.5) * 0.65, natural ? -0.1 : 0.2 + Math.random() * 0.35, (Math.random() - 0.5) * 0.65),
+        spin: new THREE.Vector3(Math.random() * 3, Math.random() * 3, Math.random() * 3),
+        settled: false,
+        swept: false,
+        life: 8
+      });
+    }
+
+    function spawnPrunedLeaves(nodes) {
+      const ids = new Set(nodes.map(node => node.id));
+      const records = leafRecords.filter(record => ids.has(record.node.id));
+      const count = Math.min(44, records.length);
+      const stride = Math.max(1, Math.floor(records.length / Math.max(1, count)));
+      for (let i = 0; i < records.length && i / stride < count; i += stride) {
+        spawnLeaf(new THREE.Vector3().setFromMatrixPosition(records[i].matrix));
+      }
+    }
+
+    function spawnNaturalFall(count) {
+      if (!leafRecords.length) return;
+      for (let i = 0; i < count; i++) {
+        const record = leafRecords[Math.floor(Math.random() * leafRecords.length)];
+        spawnLeaf(new THREE.Vector3().setFromMatrixPosition(record.matrix), true);
+      }
+    }
+
+    function clearFallen() {
+      fallenLeaves.forEach(leaf => scene.remove(leaf.mesh));
+      fallenLeaves = [];
+    }
+
+    function sweepAtPoint(point) {
+      let count = 0;
+      fallenLeaves.forEach(leaf => {
+        if (leaf.swept) return;
+        const offset = leaf.mesh.position.clone().sub(point);
+        offset.y = 0;
+        if (offset.length() > 0.85) return;
+        leaf.swept = true;
+        leaf.settled = false;
+        if (offset.lengthSq() < 0.001) offset.set(Math.random() - 0.5, 0, Math.random() - 0.5);
+        leaf.velocity.copy(offset.normalize().multiplyScalar(4)).y = 1.1;
+        leaf.life = 1.4;
+        count++;
+      });
+      if (count) noiseBurst(0.45, 'highpass', 1100, 0.035);
+      return count;
+    }
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    function setRaycasterFromEvent(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
+      raycaster.setFromCamera(pointer, camera);
+    }
+
+    function pickBranch(event) {
+      setRaycasterFromEvent(event);
+      const intersections = raycaster.intersectObjects(branchMeshes, false);
+      return intersections.length ? intersections[0].object.userData.treeNode : null;
+    }
+
+    function pickLeaf(event) {
+      if (!instancedLeaves) return null;
+      setRaycasterFromEvent(event);
+      const intersections = raycaster.intersectObjects([instancedLeaves, ...branchMeshes], false);
+      for (const intersection of intersections) {
+        if (intersection.object === instancedLeaves) {
+          const record = leafRecords[intersection.instanceId];
+          return record ? { ...record, index: intersection.instanceId } : null;
+        }
+        if (intersection.object.userData.treeNode) return null;
+      }
+      return null;
+    }
+
+    function pickCarePoint(event) {
+      setRaycasterFromEvent(event);
+      let objects = [];
+      if (activeTool === 'mist') {
+        objects = [...branchMeshes, soil];
+        if (instancedLeaves) objects.unshift(instancedLeaves);
+      } else if (activeTool === 'moss') {
+        objects = [soil, ...mossGroup.children];
+      } else if (activeTool === 'sweep') {
+        objects = [...fallenLeaves.filter(leaf => !leaf.swept).map(leaf => leaf.mesh), tableInset, table];
+      }
+      if (!objects.length) return null;
+      const intersections = raycaster.intersectObjects(objects, false);
+      return intersections.length ? intersections[0].point.clone() : null;
+    }
+
+    function affectedLeafCount(node) {
+      const ids = new Set(subtree(node).map(current => current.id));
+      return leafRecords.filter(record => ids.has(record.node.id)).length;
+    }
+
+    function positionTooltip(event) {
+      const width = 180;
+      $('hover-tooltip').style.left = `${Math.min(innerWidth - width - 10, event.clientX + 16)}px`;
+      $('hover-tooltip').style.top = `${Math.min(innerHeight - 74, event.clientY + 16)}px`;
+    }
+
+    function updateHover(event, forcedNode) {
+      if (timeAdvancing || wireDrag) return;
+      lastPointer = { clientX: event.clientX, clientY: event.clientY };
+      if (['mist', 'moss', 'sweep'].includes(activeTool)) {
+        const point = pickCarePoint(event);
+        hoveredNode = null;
+        hoveredLeaf = null;
+        branchMeshes.forEach(mesh => { mesh.material = mesh.userData.baseMaterial; });
+        if (instancedLeaves) {
+          leafRecords.forEach((record, index) => instancedLeaves.setColorAt(index, record.color));
+          if (instancedLeaves.instanceColor) instancedLeaves.instanceColor.needsUpdate = true;
+        }
+        if (!point) {
+          $('hover-tooltip').classList.remove('visible');
+        } else {
+          const labels = {
+            mist: ['Mist bottle', 'Click to mist this exact spot'],
+            moss: ['Brush moss', 'Click to grow moss at this spot'],
+            sweep: ['Sweep table', 'Click to sweep fallen leaves in this area']
+          };
+          $('hover-title').textContent = labels[activeTool][0];
+          $('hover-detail').textContent = labels[activeTool][1];
+          positionTooltip(event);
+          $('hover-tooltip').classList.add('visible');
+        }
+        return;
+      }
+      if (activeTool === 'trim') {
+        const leaf = pickLeaf(event);
+        if (leaf?.id === hoveredLeaf?.id) {
+          if (leaf) positionTooltip(event);
+          return;
+        }
+        hoveredLeaf = leaf;
+        hoveredNode = null;
+        branchMeshes.forEach(mesh => { mesh.material = mesh.userData.baseMaterial; });
+        if (instancedLeaves) {
+          leafRecords.forEach((record, index) => instancedLeaves.setColorAt(index, record.color));
+        }
+        if (!leaf) {
+          $('hover-tooltip').classList.remove('visible');
+        } else {
+          instancedLeaves.setColorAt(leaf.index, new THREE.Color(0xf0c86e));
+          $('hover-title').textContent = 'Individual maple leaf';
+          $('hover-detail').textContent = 'Click to trim this leaf · scroll to inspect';
+          positionTooltip(event);
+          $('hover-tooltip').classList.add('visible');
+        }
+        if (instancedLeaves && instancedLeaves.instanceColor) instancedLeaves.instanceColor.needsUpdate = true;
+        return;
+      }
+      hoveredLeaf = null;
+      const node = forcedNode === undefined ? pickBranch(event) : forcedNode;
+      if (node === hoveredNode) {
+        if (node) positionTooltip(event);
+        return;
+      }
+      hoveredNode = node;
+      branchMeshes.forEach(mesh => { mesh.material = mesh.userData.baseMaterial; });
+      if (instancedLeaves) {
+        leafRecords.forEach((record, index) => instancedLeaves.setColorAt(index, record.color));
+      }
+      if (!node) {
+        $('hover-tooltip').classList.remove('visible');
+      } else {
+        const affected = subtree(node);
+        const ids = new Set(affected.map(current => current.id));
+        branchMeshes.forEach(mesh => {
+          if (ids.has(mesh.userData.treeNode.id)) mesh.material = activeTool === 'wire' ? wireHighlightMaterial : highlightMaterial;
+        });
+        if (instancedLeaves) {
+          const tint = new THREE.Color(activeTool === 'wire' ? 0xd49b65 : 0xe0c175);
+          leafRecords.forEach((record, index) => {
+            if (ids.has(record.node.id)) instancedLeaves.setColorAt(index, tint);
+          });
+        }
+        $('hover-title').textContent = node.depth === 0 ? 'The living trunk' : node.depth < 2 ? 'Primary branch' : node.depth < 4 ? 'Secondary branch' : 'Young shoot';
+        $('hover-detail').textContent = node.depth === 0
+          ? 'Protect this lifeline · it cannot be cut'
+          : activeTool === 'prune'
+            ? `${affectedLeafCount(node)} leaves · click to prune`
+            : 'Drag gently to bend · release to set wire';
+        positionTooltip(event);
+        $('hover-tooltip').classList.add('visible');
+      }
+      if (instancedLeaves && instancedLeaves.instanceColor) instancedLeaves.instanceColor.needsUpdate = true;
+    }
+
+    function clearHover() {
+      hoveredNode = null;
+      hoveredLeaf = null;
+      $('hover-tooltip').classList.remove('visible');
+      branchMeshes.forEach(mesh => { mesh.material = mesh.userData.baseMaterial; });
+      if (instancedLeaves) {
+        leafRecords.forEach((record, index) => instancedLeaves.setColorAt(index, record.color));
+        if (instancedLeaves.instanceColor) instancedLeaves.instanceColor.needsUpdate = true;
+      }
+    }
+
+    function pruneNode(node) {
+      if (!node || timeAdvancing) return;
+      if (node.depth === 0) {
+        showToast('Keep the trunk. Choose a branch beyond its junction.');
+        return;
+      }
+      pushHistory();
+      const affected = subtree(node);
+      const leaves = affectedLeafCount(node);
+      spawnPrunedLeaves(affected);
+      node.pruned = true;
+      node.wired = 0;
+      if (node.parent) node.parent.lastPruned = totalMonths;
+      wounds.push({
+        nodeId: node.id,
+        position: node.start.clone(),
+        direction: node.end.clone().sub(node.start).normalize(),
+        radius: node.radiusStart,
+        age: 0
+      });
+      playSnip(node.radiusStart);
+      renderTree();
+      updateUI();
+      showToast(leaves > 0 ? `${leaves} leaves released. Energy now turns toward the lower buds.` : 'A clean cut. New energy will gather below it.');
+    }
+
+    function trimLeaf(leaf) {
+      if (!leaf || timeAdvancing || trimmedLeaves.has(leaf.id)) return;
+      pushHistory();
+      trimmedLeaves.add(leaf.id);
+      spawnLeaf(new THREE.Vector3().setFromMatrixPosition(leaf.matrix));
+      noiseBurst(0.08, 'highpass', 3200, 0.08);
+      renderTree();
+      updateUI();
+      showToast('One leaf trimmed. A little more light reaches the buds below.');
+    }
+
+    function setTool(tool) {
+      if (timeAdvancing) return;
+      activeTool = tool;
+      document.querySelectorAll('[data-tool]').forEach(button => {
+        const selected = button.dataset.tool === tool;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-pressed', String(selected));
+      });
+      controls.zoomToCursor = tool === 'trim';
+      renderer.domElement.style.cursor = tool === 'wire' ? 'grab' : 'crosshair';
+      const instructions = {
+        prune: 'Drag to orbit · Scroll to zoom<br />Click a highlighted branch to prune',
+        trim: 'Scroll to zoom toward a leaf · Right-drag to pan<br />Click a highlighted leaf to trim',
+        wire: 'Drag a branch to bend its whole shoot<br />Copper wire holds the new silhouette',
+        mist: 'Choose a spot on the foliage or bark<br />Click to mist only that area',
+        moss: 'Choose a patch of soil inside the pot<br />Click to brush moss onto that spot',
+        sweep: 'Choose fallen leaves on the table<br />Click to sweep only that area'
+      };
+      $('coach-text').innerHTML = instructions[tool];
+      clearHover();
+    }
+
+    function onPointerDown(event) {
+      if (event.button !== 0 || timeAdvancing) return;
+      if (activeTool === 'wire') {
+        const node = pickBranch(event);
+        if (!node) return;
+        if (node.depth === 0) {
+          showToast('The old trunk is too stiff. Choose a younger branch.');
+          return;
+        }
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        controls.enabled = false;
+        renderer.domElement.style.cursor = 'grabbing';
+        const originals = subtree(node, true).map(current => ({
+          node: current,
+          start: current.start.clone(),
+          end: current.end.clone(),
+          bend: current.bend.clone(),
+          wired: current.wired
+        }));
+        wireDrag = {
+          node,
+          x: event.clientX,
+          y: event.clientY,
+          pivot: node.start.clone(),
+          originals,
+          snapshot: captureState(),
+          moved: false,
+          pointerId: event.pointerId
+        };
+        renderer.domElement.setPointerCapture(event.pointerId);
+        clearHover();
+        hoveredNode = node;
+      } else if (['mist', 'moss', 'sweep'].includes(activeTool)) {
+        clickStart = { x: event.clientX, y: event.clientY, point: pickCarePoint(event) };
+      } else if (activeTool === 'trim') {
+        clickStart = { x: event.clientX, y: event.clientY, leaf: pickLeaf(event) };
+      } else {
+        clickStart = { x: event.clientX, y: event.clientY, node: pickBranch(event) };
+      }
+    }
+
+    function onPointerMove(event) {
+      if (wireDrag) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const dx = event.clientX - wireDrag.x;
+        const dy = event.clientY - wireDrag.y;
+        if (Math.abs(dx) + Math.abs(dy) > 3) wireDrag.moved = true;
+        const rotation = new THREE.Quaternion().setFromEuler(new THREE.Euler(clamp(dy * 0.004, -0.5, 0.5), clamp(dx * 0.005, -0.68, 0.68), 0, 'YXZ'));
+        wireDrag.originals.forEach(original => {
+          original.node.start.copy(original.start).sub(wireDrag.pivot).applyQuaternion(rotation).add(wireDrag.pivot);
+          original.node.end.copy(original.end).sub(wireDrag.pivot).applyQuaternion(rotation).add(wireDrag.pivot);
+          original.node.bend.copy(original.bend).applyQuaternion(rotation);
+          if (original.node === wireDrag.node) original.node.wired = 12;
+        });
+        scheduleRender();
+        return;
+      }
+      if (event.buttons) {
+        clearHover();
+        return;
+      }
+      updateHover(event);
+    }
+
+    function finishWire(event, cancelled = false) {
+      if (!wireDrag) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const drag = wireDrag;
+      wireDrag = null;
+      controls.enabled = true;
+      renderer.domElement.style.cursor = activeTool === 'wire' ? 'grab' : 'crosshair';
+      if (renderer.domElement.hasPointerCapture(drag.pointerId)) renderer.domElement.releasePointerCapture(drag.pointerId);
+      if (cancelled) {
+        drag.originals.forEach(original => {
+          original.node.start.copy(original.start);
+          original.node.end.copy(original.end);
+          original.node.bend.copy(original.bend);
+          original.node.wired = original.wired;
+        });
+      } else if (drag.moved) {
+        pushSnapshot(drag.snapshot);
+        playTone(280, 0.11, 0.025, 'triangle');
+        showToast('The branch holds a new line. Wire will loosen with the seasons.');
+      }
+      renderTree();
+    }
+
+    function onPointerUp(event) {
+      if (wireDrag) {
+        finishWire(event);
+        return;
+      }
+      if (!clickStart || event.button !== 0) return;
+      const distance = Math.hypot(event.clientX - clickStart.x, event.clientY - clickStart.y);
+      if (['mist', 'moss', 'sweep'].includes(activeTool)) {
+        const point = pickCarePoint(event);
+        if (distance < 6 && clickStart.point && point) {
+          if (activeTool === 'mist') mistAtPoint(point);
+          else if (activeTool === 'moss') mossAtPoint(point);
+          else {
+            const count = sweepAtPoint(point);
+            showToast(count ? `${count} fallen ${count === 1 ? 'leaf' : 'leaves'} swept from this area.` : 'No fallen leaves in this spot.');
+          }
+        }
+        clickStart = null;
+        return;
+      }
+      if (activeTool === 'trim') {
+        const leaf = pickLeaf(event);
+        if (distance < 6 && clickStart.leaf && leaf && leaf.id === clickStart.leaf.id) trimLeaf(leaf);
+        clickStart = null;
+        return;
+      }
+      if (activeTool !== 'prune') return;
+      const node = pickBranch(event);
+      if (distance < 6 && clickStart.node && node && node.id === clickStart.node.id) pruneNode(node);
+      clickStart = null;
+    }
+
+    renderer.domElement.addEventListener('pointerdown', onPointerDown, { capture: true });
+    renderer.domElement.addEventListener('pointermove', onPointerMove, { capture: true });
+    renderer.domElement.addEventListener('pointerup', onPointerUp, { capture: true });
+    renderer.domElement.addEventListener('pointercancel', event => finishWire(event, true), { capture: true });
+    renderer.domElement.addEventListener('pointerleave', () => { if (!wireDrag) clearHover(); });
+    renderer.domElement.addEventListener('contextmenu', event => event.preventDefault());
+
+    function mistAtPoint(point) {
+      if (timeAdvancing) return;
+      pushHistory();
+      hydration = Math.min(100, hydration + 18);
+      const random = rngFor(Math.floor(performance.now()));
+      for (let i = 0; i < mistCount; i++) {
+        const angle = random() * Math.PI * 2;
+        const distance = Math.sqrt(random()) * 0.38;
+        mistPositions[i * 3] = point.x + Math.cos(angle) * distance;
+        mistPositions[i * 3 + 1] = point.y + 0.08 + random() * 0.55;
+        mistPositions[i * 3 + 2] = point.z + Math.sin(angle) * distance;
+      }
+      mistGeometry.attributes.position.needsUpdate = true;
+      mistSpray.visible = true;
+      mistUntil = performance.now() + 1100;
+      addDropletsAround(point);
+      rebuildDroplets();
+      noiseBurst(0.65, 'highpass', 3600, 0.045);
+      updateUI();
+      showToast('A cool mist settles on your chosen spot. Zoom in to see the droplets.');
+    }
+
+    function mossAtPoint(point) {
+      if (timeAdvancing) return;
+      pushHistory();
+      mossPatches.push({ position: [point.x, point.y, point.z], radius: 0.32 });
+      moss = Math.min(100, moss + 12);
+      hydration = Math.min(100, hydration + 2);
+      buildMoss();
+      updateUI();
+      noiseBurst(0.32, 'lowpass', 900, 0.025);
+      showToast('Fresh moss gathers on your chosen patch of soil.');
+    }
+
+    function syncParameterInputs() {
+      ['depth', 'spread', 'gnarl', 'leaves'].forEach(key => {
+        $(key).value = params[key];
+        $(`${key}-output`).textContent = key === 'spread' || key === 'gnarl' ? Number(params[key]).toFixed(2) : params[key];
+      });
+    }
+
+    function growNewTree() {
+      if (timeAdvancing) return;
+      pushHistory();
+      params = {
+        depth: Number($('depth').value),
+        spread: Number($('spread').value),
+        gnarl: Number($('gnarl').value),
+        leaves: Number($('leaves').value)
+      };
+      activeSeed = Math.floor(Math.random() * 2147483645) + 1;
+      root = generateTree(activeSeed);
+      month = 2;
+      year = 1;
+      totalMonths = 0;
+      hydration = 80;
+      moss = 68;
+      harmonyAchieved = false;
+      wounds = [];
+      trimmedLeaves.clear();
+      mossPatches = [];
+      waterDroplets = [];
+      dropletsDirty = true;
+      clearFallen();
+      buildMoss();
+      renderTree();
+      updateUI();
+      setCultivationOpen(false);
+      showToast('A new maple begins its quiet story.');
+    }
+
+    let audioContext = null;
+    let masterGain = null;
+    let noiseBuffer = null;
+    let windGain = null;
+    let rainGain = null;
+    let soundOn = false;
+
+    function initAudio() {
+      if (audioContext) return;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      audioContext = new AudioContextClass();
+      masterGain = audioContext.createGain();
+      masterGain.gain.value = 0;
+      masterGain.connect(audioContext.destination);
+      noiseBuffer = audioContext.createBuffer(1, audioContext.sampleRate * 2, audioContext.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+      const wind = audioContext.createBufferSource();
+      wind.buffer = noiseBuffer;
+      wind.loop = true;
+      const windFilter = audioContext.createBiquadFilter();
+      windFilter.type = 'lowpass';
+      windFilter.frequency.value = 520;
+      windGain = audioContext.createGain();
+      windGain.gain.value = 0.045;
+      wind.connect(windFilter).connect(windGain).connect(masterGain);
+      wind.start();
+
+      const rainSource = audioContext.createBufferSource();
+      rainSource.buffer = noiseBuffer;
+      rainSource.loop = true;
+      const rainFilter = audioContext.createBiquadFilter();
+      rainFilter.type = 'highpass';
+      rainFilter.frequency.value = 1800;
+      rainGain = audioContext.createGain();
+      rainGain.gain.value = 0;
+      rainSource.connect(rainFilter).connect(rainGain).connect(masterGain);
+      rainSource.start();
+      applyWeatherAudio();
+    }
+
+    function applyWeatherAudio() {
+      if (!audioContext || !rainGain || !windGain) return;
+      rainGain.gain.setTargetAtTime(weather === 'rain' ? 0.11 : 0, audioContext.currentTime, 0.5);
+      windGain.gain.setTargetAtTime(weather === 'mist' ? 0.075 : 0.045, audioContext.currentTime, 0.5);
+    }
+
+    function toggleSound() {
+      initAudio();
+      if (!audioContext) {
+        showToast('Ambient audio is not supported in this browser.');
+        return;
+      }
+      audioContext.resume();
+      soundOn = !soundOn;
+      masterGain.gain.setTargetAtTime(soundOn ? 0.65 : 0, audioContext.currentTime, 0.08);
+      $('sound-label').textContent = soundOn ? 'Sound on' : 'Sound off';
+      $('sound-toggle').setAttribute('aria-pressed', String(soundOn));
+      $('sound-toggle').setAttribute('aria-label', soundOn ? 'Turn ambient sound off' : 'Turn ambient sound on');
+      if (soundOn) playBell();
+    }
+
+    function noiseBurst(duration, type, frequency, volume) {
+      if (!soundOn || !audioContext) return;
+      const now = audioContext.currentTime;
+      const source = audioContext.createBufferSource();
+      source.buffer = noiseBuffer;
+      const filter = audioContext.createBiquadFilter();
+      filter.type = type;
+      filter.frequency.value = frequency;
+      const gain = audioContext.createGain();
+      gain.gain.setValueAtTime(volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      source.connect(filter).connect(gain).connect(masterGain);
+      source.start(now, Math.random());
+      source.stop(now + duration);
+    }
+
+    function playTone(frequency, duration, volume, type = 'sine', delay = 0) {
+      if (!soundOn || !audioContext) return;
+      const now = audioContext.currentTime + delay;
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, now);
+      gain.gain.setValueAtTime(volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      oscillator.connect(gain).connect(masterGain);
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+    }
+
+    function playSnip(radius) {
+      noiseBurst(0.09, 'bandpass', 1800 + (0.2 - Math.min(radius, 0.2)) * 3000, 0.17);
+      playTone(1200, 0.055, 0.035, 'square');
+      noiseBurst(0.36, 'highpass', 2500, 0.025);
+    }
+
+    function playBell() {
+      playTone(660, 2.2, 0.055, 'sine');
+      playTone(990, 1.8, 0.025, 'sine', 0.03);
+      playTone(1320, 1.3, 0.012, 'sine', 0.06);
+    }
+
+    function applyWeather() {
+      weather = $('weather').value;
+      rain.visible = weather === 'rain';
+      if (weather === 'rain') addRainDroplets(120);
+      const background = weather === 'clear' ? 0xe8e2d7 : weather === 'rain' ? 0xcbd2ce : 0xdde1da;
+      scene.background.setHex(background);
+      scene.fog.color.setHex(background);
+      scene.fog.density = weather === 'clear' ? 0.022 : weather === 'rain' ? 0.035 : 0.058;
+      sun.intensity = weather === 'clear' ? 3.4 : weather === 'rain' ? 1.8 : 2.2;
+      applyWeatherAudio();
+    }
+
+    function showToast(message) {
+      clearTimeout(toastTimer);
+      $('toast').textContent = message;
+      $('toast').classList.add('visible');
+      toastTimer = setTimeout(() => $('toast').classList.remove('visible'), 3400);
+    }
+
+    const cultivationWidget = $('settings-panel');
+    const cultivationHandle = $('cultivation-handle');
+    let cultivationDrag = null;
+
+    function clampCultivationWidget() {
+      if (!cultivationWidget.style.left) return;
+      const rect = cultivationWidget.getBoundingClientRect();
+      const left = clamp(parseFloat(cultivationWidget.style.left), 8, Math.max(8, innerWidth - rect.width - 8));
+      const top = clamp(parseFloat(cultivationWidget.style.top), 60, Math.max(60, innerHeight - 64));
+      cultivationWidget.style.left = `${left}px`;
+      cultivationWidget.style.top = `${top}px`;
+    }
+
+    function setCultivationOpen(open) {
+      cultivationWidget.classList.toggle('hidden', !open);
+      $('settings-toggle').setAttribute('aria-expanded', String(open));
+      $('settings-toggle').setAttribute('aria-label', open ? 'Close cultivation settings' : 'Open cultivation settings');
+      if (open) clampCultivationWidget();
+    }
+
+    cultivationHandle.addEventListener('pointerdown', event => {
+      if (event.button !== 0 || event.target.closest('button')) return;
+      event.preventDefault();
+      const rect = cultivationWidget.getBoundingClientRect();
+      cultivationWidget.style.left = `${rect.left}px`;
+      cultivationWidget.style.top = `${rect.top}px`;
+      cultivationWidget.style.right = 'auto';
+      cultivationDrag = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top };
+      cultivationHandle.setPointerCapture(event.pointerId);
+      cultivationWidget.classList.add('dragging');
+    });
+
+    cultivationHandle.addEventListener('pointermove', event => {
+      if (!cultivationDrag) return;
+      const rect = cultivationWidget.getBoundingClientRect();
+      cultivationWidget.style.left = `${clamp(event.clientX - cultivationDrag.offsetX, 8, Math.max(8, innerWidth - rect.width - 8))}px`;
+      cultivationWidget.style.top = `${clamp(event.clientY - cultivationDrag.offsetY, 60, Math.max(60, innerHeight - 64))}px`;
+    });
+
+    function finishCultivationDrag(event) {
+      if (!cultivationDrag) return;
+      if (cultivationHandle.hasPointerCapture(cultivationDrag.pointerId)) cultivationHandle.releasePointerCapture(cultivationDrag.pointerId);
+      cultivationDrag = null;
+      cultivationWidget.classList.remove('dragging');
+      clampCultivationWidget();
+    }
+
+    cultivationHandle.addEventListener('pointerup', finishCultivationDrag);
+    cultivationHandle.addEventListener('pointercancel', finishCultivationDrag);
+    $('cultivation-collapse').addEventListener('click', () => {
+      const collapsed = $('cultivation-body').classList.toggle('collapsed');
+      cultivationWidget.classList.toggle('collapsed', collapsed);
+      $('cultivation-collapse').setAttribute('aria-expanded', String(!collapsed));
+      $('cultivation-collapse').setAttribute('aria-label', collapsed ? 'Expand cultivation widget' : 'Collapse cultivation widget');
+      $('cultivation-collapse').title = collapsed ? 'Expand widget' : 'Collapse widget';
+      $('cultivation-collapse-icon').textContent = collapsed ? '+' : '−';
+      clampCultivationWidget();
+    });
+
+    document.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => setTool(button.dataset.tool)));
+    $('undo-button').addEventListener('click', undo);
+    $('grow-button').addEventListener('click', advanceTime);
+    $('new-tree').addEventListener('click', growNewTree);
+    $('sound-toggle').addEventListener('click', toggleSound);
+    $('weather').addEventListener('change', applyWeather);
+    $('settings-toggle').addEventListener('click', () => setCultivationOpen($('settings-panel').classList.contains('hidden')));
+    $('close-settings').addEventListener('click', () => setCultivationOpen(false));
+    $('dismiss-coach').addEventListener('click', () => $('coach').classList.add('hidden'));
+    ['depth', 'spread', 'gnarl', 'leaves'].forEach(key => {
+      $(key).addEventListener('input', () => {
+        $(`${key}-output`).textContent = key === 'spread' || key === 'gnarl' ? Number($(key).value).toFixed(2) : $(key).value;
+      });
+    });
+
+    window.addEventListener('keydown', event => {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        undo();
+      } else if (event.key.toLowerCase() === 'v') {
+        setTool('prune');
+      } else if (event.key.toLowerCase() === 't') {
+        setTool('trim');
+      } else if (event.key.toLowerCase() === 'w') {
+        setTool('wire');
+      } else if (event.key === 'Escape') {
+        setCultivationOpen(false);
+        clearHover();
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.fov = innerWidth < 760 ? 68 : 39;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
+      clampCultivationWidget();
+    });
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.05);
+      controls.update();
+
+      if (rain.visible) {
+        for (let i = 0; i < rainCount; i++) {
+          rainPositions[i * 3 + 1] -= delta * 6.5;
+          rainPositions[i * 3] -= delta * 0.35;
+          if (rainPositions[i * 3 + 1] < -0.5) rainPositions[i * 3 + 1] = 10 + Math.random() * 3;
+        }
+        rainGeometry.attributes.position.needsUpdate = true;
+      }
+
+      if (mistSpray.visible) {
+        for (let i = 0; i < mistCount; i++) {
+          mistPositions[i * 3 + 1] -= delta * 1.4;
+          mistPositions[i * 3] += delta * 0.12;
+        }
+        mistGeometry.attributes.position.needsUpdate = true;
+        if (performance.now() > mistUntil) mistSpray.visible = false;
+      }
+
+      updateWaterDroplets(delta);
+      for (let i = fallenLeaves.length - 1; i >= 0; i--) {
+        const leaf = fallenLeaves[i];
+        if (!leaf.settled) {
+          leaf.velocity.y -= delta * 1.9;
+          leaf.mesh.position.addScaledVector(leaf.velocity, delta);
+          leaf.mesh.rotation.x += leaf.spin.x * delta;
+          leaf.mesh.rotation.y += leaf.spin.y * delta;
+          leaf.mesh.rotation.z += leaf.spin.z * delta;
+          if (!leaf.swept && leaf.mesh.position.y <= -0.57) {
+            leaf.mesh.position.y = -0.57;
+            leaf.mesh.rotation.x = Math.PI / 2;
+            leaf.settled = true;
+          }
+        }
+        if (leaf.swept) {
+          leaf.life -= delta;
+          leaf.mesh.scale.multiplyScalar(Math.max(0.85, 1 - delta * 1.4));
+          if (leaf.life <= 0 || leaf.mesh.position.y < -1.2) {
+            scene.remove(leaf.mesh);
+            fallenLeaves.splice(i, 1);
+          }
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    root = generateTree(activeSeed);
+    buildMoss();
+    renderTree();
+    updateUI();
+    applyWeather();
+    syncParameterInputs();
+    animate();
+    requestAnimationFrame(() => $('loading').classList.add('hidden'));
+  </script>
+</body>
+</html>
